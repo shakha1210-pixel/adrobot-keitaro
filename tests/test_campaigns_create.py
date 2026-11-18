@@ -1,8 +1,8 @@
 """Тесты создателя кампаний: happy path, валидация, откат."""
+
 from __future__ import annotations
 
 import httpx
-
 from conftest import API, echo_json, json_response
 
 CAMPAIGN = {
@@ -111,9 +111,7 @@ def test_create_happy_path(client, api):
 
 def test_validation_bad_prefix(client, api):
     _register_world(api)
-    resp = client.post(
-        "/api/campaigns", json={"name": "wrong_name", "geo": "UZ", "offer_id": 12}
-    )
+    resp = client.post("/api/campaigns", json={"name": "wrong_name", "geo": "UZ", "offer_id": 12})
     assert resp.status_code == 422
     body = resp.json()
     assert body["error"]["code"] == "validation"
@@ -145,17 +143,15 @@ def test_offer_not_found(client, api):
 
 def test_rollback_on_stream_failure(client, api):
     _register_world(api)
-    api.post(f"{API}/streams").mock(
-        return_value=httpx.Response(500, json={"message": "boom"})
-    )
-    delete_route = api.delete(f"{API}/campaigns/734").mock(
-        return_value=json_response([])
-    )
+    api.post(f"{API}/streams").mock(return_value=httpx.Response(500, json={"message": "boom"}))
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
     resp = client.post(
         "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
     )
     assert resp.status_code == 502
-    assert resp.json()["error"]["code"] == "keitaro_unavailable"
+    # POST /streams не повторяется (мутация): 5xx = неоднозначный исход,
+    # сервис откатывает созданную кампанию и просит свериться с админкой.
+    assert resp.json()["error"]["code"] == "keitaro_ambiguous"
     assert delete_route.call_count == 1  # кампания откачена (архивирована)
 
     ops = client.get("/api/operations").json()["items"]

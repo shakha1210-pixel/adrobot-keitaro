@@ -1,4 +1,5 @@
 """Настройки приложения (pydantic-settings, .env)."""
+
 from __future__ import annotations
 
 from functools import lru_cache

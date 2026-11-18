@@ -1,8 +1,8 @@
 """Аудит операций: запись в собственную БД (отладка и отчёт)."""
+
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from ..db import SessionLocal
 from ..models import OperationLog
@@ -33,5 +33,5 @@ def log_operation(
                 )
             )
             session.commit()
-    except Exception:  # noqa: BLE001 — аудит не должен ломать бизнес-логику
+    except Exception:
         log.exception("failed to write audit record (action=%s)", action)

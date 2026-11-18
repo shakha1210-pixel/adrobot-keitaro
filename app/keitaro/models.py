@@ -3,6 +3,7 @@
 Исходник контракта: https://gist.github.com/asabirov/3cd29f43de41bd76ab93de073a7883a9
 (официальная документация Admin API v1, asabirov — разработчик Keitaro).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,7 +27,7 @@ class Offer:
     state: str | None = None
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Offer":
+    def from_dict(cls, d: dict) -> Offer:
         return cls(
             id=int(d.get("id", 0)),
             name=str(d.get("name") or ""),
@@ -54,7 +55,7 @@ class Campaign:
     updated_at: str | None = None
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Campaign":
+    def from_dict(cls, d: dict) -> Campaign:
         return cls(
             id=int(d.get("id", 0)),
             name=str(d.get("name") or ""),
@@ -80,7 +81,7 @@ class StreamFilter:
     id: int | None = None  # id фильтра в Keitaro (нужен при обновлении потока)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "StreamFilter":
+    def from_dict(cls, d: dict) -> StreamFilter:
         return cls(
             name=str(d.get("name") or ""),
             mode=str(d.get("mode") or ""),
@@ -97,7 +98,7 @@ class StreamOfferBinding:
     state: str | None = None
 
     @classmethod
-    def from_dict(cls, d: dict) -> "StreamOfferBinding":
+    def from_dict(cls, d: dict) -> StreamOfferBinding:
         return cls(
             id=_to_int(d.get("id")),
             offer_id=int(d.get("offer_id") or 0),
@@ -119,9 +120,10 @@ class Stream:
     action_payload: str | None = None
     filters: list[StreamFilter] = field(default_factory=list)
     offers: list[StreamOfferBinding] = field(default_factory=list)
+    raw: dict = field(default_factory=dict, repr=False)  # исходный payload Keitaro
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Stream":
+    def from_dict(cls, d: dict) -> Stream:
         return cls(
             id=int(d.get("id", 0)),
             campaign_id=int(d.get("campaign_id", 0)),
@@ -134,4 +136,5 @@ class Stream:
             action_payload=d.get("action_payload"),
             filters=[StreamFilter.from_dict(f) for f in (d.get("filters") or [])],
             offers=[StreamOfferBinding.from_dict(o) for o in (d.get("offers") or [])],
+            raw=dict(d),
         )

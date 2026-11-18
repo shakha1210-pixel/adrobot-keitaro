@@ -3,6 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.x-D71F00)](https://www.sqlalchemy.org/)
+[![Ruff](https://img.shields.io/badge/Lint-Ruff-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![License](https://img.shields.io/badge/License-MIT-green)](#лицензия)
 
 > 🇺🇿 O'zbekcha: [README.uz.md](README.uz.md) · Архитектура: [docs/ARCHITECTURE.ru.md](docs/ARCHITECTURE.ru.md) · [docs/ARCHITECTURE.uz.md](docs/ARCHITECTURE.uz.md)
@@ -22,18 +23,21 @@
 - [Миграции](#миграции)
 - [Конфигурация](#конфигурация)
 - [API сервиса](#api-сервиса)
-- [Тесты](#тесты)
+- [Надёжность интеграции с Keitaro](#надёжность-интеграции-с-keitaro)
+- [Тесты и качество кода](#тесты-и-качество-кода)
 - [Демо-режим](#демо-режим-без-реального-keitaro)
 - [Структура проекта](#структура-проекта)
+- [Устранение неполадок](#устранение-неполадок)
+- [Безопасность](#безопасность)
+- [Известные ограничения](#известные-ограничения)
 - [Использование ИИ-агентов](#использование-ии-агентов)
-- [Что не успел / что бы доделал](#что-не-успел--что-бы-доделал)
 
 ## Что умеет
 
 **Создатель кампаний** (`Новая кампания` в UI):
 
 - валидация названия — обязательный префикс `test_<фамилия>_` проверяется на бэкенде;
-- гео-код страны — 2 буквы ISO-3166, нормализуется в верхний регистр;
+- гео-код страны — 2 буквы ISO-3166 (справочник из 113 кодов), нормализуется в верхний регистр;
 - проверка существования оффера в Keitaro (иначе `404`);
 - кампания создаётся с доменом, группой и источником (резолвятся по имени из `.env`);
 - поток №1 (позиция 1): фильтр «страна = гео» (allow) → редирект на `REDIRECT_URL` (Google);
@@ -47,7 +51,8 @@
 - карточки потоков: фильтры, назначение, состояние;
 - добавление оффера — доли автоматически пересчитываются, **сумма всегда = 100%**;
 - удаление оффера — доли перераспределяются; последний оффер удалить нельзя (`409`);
-- статистика по каждому офферу (клики, уники, боты, конверсии, CR) напрямую из `POST /report/build`.
+- статистика по каждому офферу (клики, уники, боты, конверсии, CR) напрямую из `POST /report/build`;
+- при правке офферов **остальная конфигурация потока не теряется**: PUT строится от исходного представления потока (triggers, comments, filter_or, chance, action_options, landings сохраняются) — покрыто регрессионным тестом.
 
 ## Быстрый старт
 
@@ -61,7 +66,7 @@ python -m venv .venv
 # Linux / macOS
 # python3 -m venv .venv && source .venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # рантайм + тесты + ruff
 
 cp .env.example .env        # Windows: copy .env.example .env
 # отредактируйте .env: KEITARO_API_KEY и CAMPAIGN_PREFIX
@@ -72,7 +77,7 @@ uvicorn app.main:app --reload
 
 Откройте <http://127.0.0.1:8000> — интерфейс, <http://127.0.0.1:8000/docs> — Swagger.
 
-> **Windows одной командой:** `.\scripts\dev.ps1` — создаёт venv, ставит зависимости, применяет миграции и запускает сервер.
+> **Windows одной командой:** `.\scripts\dev.ps1` — создаёт venv, ставит зависимости, применяет миграции и запускает сервер. Полная проверка перед коммитом: `.\scripts\check.ps1`.
 
 ## Установка и запуск
 
@@ -82,12 +87,12 @@ uvicorn app.main:app --reload
 |---|---|
 | 1. Клонировать | `git clone <URL репозитория> && cd adrobot-keitaro` |
 | 2. Окружение | `python -m venv .venv` → активация (см. выше) |
-| 3. Зависимости | `pip install -r requirements.txt` |
+| 3. Зависимости | `pip install -r requirements-dev.txt` (или `requirements.txt` — только рантайм) |
 | 4. Конфигурация | `cp .env.example .env` и заполнить `KEITARO_API_KEY`, `CAMPAIGN_PREFIX` |
 | 5. Миграции | `alembic upgrade head` |
 | 6. Запуск | `uvicorn app.main:app --reload` |
 
-Без API-ключа сервис запустится, но операции с Keitaro будут недоступны — в UI появится статус «ключ не задан».
+Без API-ключа сервис запустится, но операции с Keitaro будут недоступны — в UI появится статус «ключ не задан», а `/health/ready` вернёт `503`.
 
 ## Миграции
 
@@ -100,6 +105,8 @@ alembic revision --autogenerate -m "описание" # новая миграц�
 alembic current                               # текущая ревизия
 ```
 
+`alembic upgrade head` на чистой базе проверяется в CI (job `migrations`).
+
 ## Конфигурация
 
 Все параметры — в `.env` (шаблон — [.env.example](.env.example)):
@@ -109,7 +116,7 @@ alembic current                               # текущая ревизия
 | `KEITARO_BASE_URL` | `https://tlgk.host` | адрес трекера (без `/admin_api/v1`) |
 | `KEITARO_API_KEY` | — | ключ Admin API |
 | `KEITARO_TIMEOUT` | `15` | таймаут запроса к Keitaro, с |
-| `KEITARO_RETRIES` | `2` | ретраи при 5xx/сетевых ошибках |
+| `KEITARO_RETRIES` | `2` | ретраи **идемпотентных** операций при 5xx/сетевых ошибках |
 | `CAMPAIGN_PREFIX` | `test_familiya_` | обязательный префикс названия кампании |
 | `CAMPAIGN_TYPE` | `position` | ротация потоков (`position`/`weight`) |
 | `DEFAULT_DOMAIN` | `in.posdk.xyz` | домен кампании (имя в Keitaro) |
@@ -125,7 +132,9 @@ alembic current                               # текущая ревизия
 
 | Метод | Путь | Назначение |
 |---|---|---|
-| GET | `/health` | живость сервиса + статус Keitaro и БД |
+| GET | `/health` | сводный статус (всегда 200: `keitaro`, `db`) |
+| GET | `/health/live` | liveness — жив ли процесс (200) |
+| GET | `/health/ready` | readiness — 200/503 по БД и Keitaro |
 | GET | `/api/meta` | префикс, домен/группа/источник, URL Keitaro |
 | GET | `/api/offers?q=` | автокомплит офферов (по имени или ID) |
 | POST | `/api/campaigns` | создать кампанию `{name, geo, offer_id}` |
@@ -135,13 +144,13 @@ alembic current                               # текущая ревизия
 | DELETE | `/api/campaigns/{id}/streams/{sid}/offers/{oid}` | удалить оффер |
 | GET | `/api/operations?limit=50` | история операций (аудит) |
 
-Единый формат ошибки:
+Каждый ответ несёт заголовок `X-Request-ID` (корреляция с логами). Единый формат ошибки:
 
 ```json
 {"error": {"code": "conflict", "message": "Нельзя удалить последний оффер в потоке: поток останется пустым."}}
 ```
 
-Коды: `validation` (422), `not_found` (404), `conflict` (409), `keitaro_unavailable` / `keitaro_error` (502), `internal` (500).
+Коды: `validation` (422), `not_found` (404), `conflict` (409), `keitaro_unavailable` (502, Keitaro недоступен), `keitaro_error` (502, интеграция вернула ошибку), `keitaro_ambiguous` (502, исход операции неизвестен — см. ниже), `internal` (500).
 
 Пример создания кампании:
 
@@ -151,14 +160,31 @@ curl -X POST http://127.0.0.1:8000/api/campaigns \
   -d '{"name": "test_familiya_campaign1", "geo": "UZ", "offer_id": 12}'
 ```
 
-## Тесты
+## Надёжность интеграции с Keitaro
+
+Keitaro — внешняя система, которая может таймаутить, отдавать 5xx или «съедать» запрос без подтверждения. Стратегия:
+
+- **Мутации не повторяются вслепую.** `POST /campaigns` и `POST /streams` выполняются ровно один раз: Keitaro не поддерживает idempotency-ключи, а таймаут не означает «не создано». При таймауте/5xx возвращается `keitaro_ambiguous` с просьбой свериться с админкой; при частичном сбое создания уже созданная кампания откатывается (архивируется).
+- **Чтения повторяются.** GET (и идемпотентные PUT/DELETE, а также read-only `POST /report/build`) ретраятся `KEITARO_RETRIES` раз при сетевых сбоях и 5xx/429.
+- **Конфигурация сохраняется.** PUT потока строится от исходного представления, полученного из GET, — меняются только привязки офферов.
+- **Ошибки не утекают.** Внутренние сообщения Keitaro пишутся только в лог; клиенту возвращается безопасный текст.
+- **Сбой отчёта не роняет редактор** — статистика деградирует до нулей с предупреждением в логе.
+
+## Тесты и качество кода
 
 ```bash
-pytest            # весь набор (24 теста)
-pytest -v         # подробно
+pytest                        # 48 тестов
+pytest -v                     # подробно
+pytest tests/test_keitaro_client.py -v   # политика повторов и неоднозначные исходы
+ruff check .                  # линтер
+ruff format --check .         # форматтер
+node --check static/app.js    # синтаксис фронтенда
+.\scripts\check.ps1           # всё сразу (Windows)
 ```
 
-Покрытие: создание кампании (happy path, валидация, откат), редактор (добавление/удаление офферов, пересчёт долей, конфликты), поиск офферов, health/meta, утилиты долей и alias. Keitaro мокается через [respx](https://pypi.org/project/respx/) — тесты не трогают реальный трекер.
+Покрытие: создание (happy path, валидация, откат, неоднозначный исход), редактор (доли, конфликты, **сохранение чужой конфигурации потока**, деградация статистики), клиент Keitaro (ретраи идемпотентных, отсутствие ретраев мутаций, 4xx/401, таймауты), health (live/ready), аудит (в т.ч. сбой БД → безопасный 500), корреляционные ID, отсутствие утечки внутренних ошибок. Keitaro мокается через [respx](https://pypi.org/project/respx/) — тесты не трогают реальный трекер.
+
+Качество кода: [Ruff](https://docs.astral.sh/ruff/) (lint + format), конфигурация в [pyproject.toml](pyproject.toml); опционально pre-commit (`.pre-commit-config.yaml`); GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)): ruff, pytest на Python 3.11–3.13, миграции на чистой базе, проверка фронтенда.
 
 ## Демо-режим (без реального Keitaro)
 
@@ -183,43 +209,68 @@ uvicorn app.main:app --reload       # http://127.0.0.1:8000
 ```
 adrobot-keitaro/
 ├── app/
-│   ├── main.py              # FastAPI, lifespan, роутеры, статика
+│   ├── main.py              # FastAPI, lifespan, middleware (X-Request-ID), статика
 │   ├── config.py            # pydantic-settings (.env)
 │   ├── db.py                # engine, SessionLocal, Base
 │   ├── models.py            # ORM: OperationLog (аудит)
 │   ├── schemas.py           # Pydantic-схемы API
-│   ├── errors.py            # доменные ошибки + обработчики
-│   ├── countries.py         # ISO-3166 гео-коды
+│   ├── errors.py            # доменные ошибки + безопасные обработчики
+│   ├── countries.py         # ISO-3166 гео-коды (113)
 │   ├── keitaro/
-│   │   ├── client.py        # HTTP-клиент Admin API v1 (ретраи, таймауты)
-│   │   └── models.py        # DTO ответов Keitaro
+│   │   ├── client.py        # HTTP-клиент: таймауты, безопасные ретраи, DTO
+│   │   └── models.py        # DTO ответов Keitaro (+ raw для PUT без потерь)
 │   ├── services/            # reference, offers, report, audit,
 │   │                        # campaign_creator, campaign_editor, views
-│   └── routers/             # meta, offers, campaigns, operations
+│   └── routers/             # meta (health), offers, campaigns, operations
 ├── alembic/                 # миграции (alembic upgrade head)
 ├── static/                  # UI: index.html, styles.css, app.js
-├── tests/                   # pytest + respx
+├── tests/                   # pytest + respx (48 тестов)
 ├── scripts/
 │   ├── dev.ps1              # быстрый запуск на Windows
+│   ├── check.ps1            # lint + tests + frontend
 │   └── mock_keitaro.py      # демо-эмулятор Keitaro
 ├── docs/                    # ARCHITECTURE.ru.md / .uz.md
+├── .github/workflows/ci.yml # CI: lint, tests, migrations, frontend
+├── pyproject.toml           # ruff + pytest конфигурация
+├── requirements.txt         # рантайм-зависимости
+├── requirements-dev.txt     # + pytest, respx, ruff
 ├── .env.example
-└── requirements.txt
+└── README.md / README.uz.md
 ```
+
+## Устранение неполадок
+
+| Симптом | Причина и решение |
+|---|---|
+| `422 validation: Название должно начинаться с префикса…` | имя кампании не с префикса — проверьте `CAMPAIGN_PREFIX` в `.env` |
+| `502 keitaro_error` с общим текстом | Keitaro вернул ошибку (4xx/5xx): смотрите лог сервиса — там точная причина; проверьте ключ в админке |
+| `502 keitaro_ambiguous` | операция могла выполниться без подтверждения: проверьте кампанию в админке Keitaro и не повторяйте вслепую |
+| `503` от `/health/ready` | недоступны Keitaro или БД; `/health` покажет, что именно |
+| UI: «Конфигурация недоступна» | не найден домен/группа/источник в Keitaro — сверьте `DEFAULT_*` в `.env` с именами в админке |
+| `ModuleNotFoundError` при `alembic` | активируйте venv или используйте `python -m alembic` |
+
+## Безопасность
+
+- `.env` не коммитится (`.gitignore`); в репозитории только `.env.example`.
+- API-ключ передаётся только в заголовке `Api-Key` запросов к Keitaro и никогда не логируется и не попадает в ответы.
+- CORS не включён — приложение обслуживает только same-origin запросы (фронтенд раздаётся самим FastAPI). Для отдельного фронтенд-домена настройте CORS явно и только под нужный origin.
+- Внутренние тексты ошибок Keitaro и трейсбеки не попадают в ответы API (проверяется тестом); подробности — в логах.
+- Внешние URL принимаются только из `.env` (Keitaro, редирект), пользовательский ввод URL не используется — SSRF-поверхность отсутствует.
+- Открытые ограничения: сервис локальный/однопользовательский (нет авторизации), SQLite — без шифрования; перед публичным деплоем добавьте authN и reverse-proxy с TLS.
+
+## Известные ограничения
+
+- Точные имена полей Keitaro (`country_code` для фильтра страны, `domain_id` в `POST /campaigns`) сверены с документацией Admin API v1; если конкретная версия Keitaro их не примет — правка в одном месте (`app/services/campaign_creator.py`).
+- PUT потока — полная замена представления (так работает Admin API v1); сохранность полей обеспечивается отправкой исходного payload, но поведение проверено на документации и мок-сервере, а не на вашей инсталляции Keitaro.
+- UI на русском языке; переключателя языка нет.
+- Статистика в редакторе обновляется по кнопке (авто-обновления по таймеру нет).
 
 ## Использование ИИ-агентов
 
 - **Проектирование** — архитектура сервиса (слои, сценарии, план) описана в [docs/ARCHITECTURE.ru.md](docs/ARCHITECTURE.ru.md) и согласована с ИИ-агентом до начала кодинга.
-- **Код** — бэкенд, фронтенд, тесты и документация генерировались ИИ-агентами (DeepSeek Harness / Cursor) по готовому контракту API; вручную исправлялись несоответствия Keitaro API.
-- **Проверка** — все тесты, миграции и smoke-сценарии (создание → статистика → добавление/удаление офферов) прогонялись вручную; на реальном Keitaro проверен ручной smoke-тест с префиксом `test_<фамилия>_`.
-
-## Что не успел / что бы доделал
-
-- E2E-тесты UI (Playwright) вместо ручной проверки.
-- Автообновление статистики в редакторе по таймеру.
-- Переключатель языка интерфейса (RU/UZ/EN) — сейчас UI на русском.
-- Авторизация пользователей сервиса (вне рамок задания — сервис локальный).
+- **Код** — бэкенд, фронтенд, тесты и документация генерировались ИИ-агентами (DeepSeek Harness / Cursor) по готовому контракту API; контракт Keitaro сверен с официальной документацией Admin API v1.
+- **Проверка** — все тесты, миграции, линтер и smoke-сценарии (создание → статистика → добавление/удаление офферов → откат) прогонялись вручную; на реальном Keitaro проверен ручной smoke-тест с префиксом `test_<фамилия>_`.
 
 ## Лицензия
 
-MIT.
+MIT — см. [LICENSE](LICENSE).

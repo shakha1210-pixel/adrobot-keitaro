@@ -4,15 +4,16 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Разрешаем импорт `app` из корня проекта
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.config import get_settings  # noqa: E402
-from app.db import Base  # noqa: E402
-from app import models  # noqa: E402,F401 — регистрирует метаданные моделей
+from app import models  # noqa: F401 — регистрирует метаданные моделей
+from app.config import get_settings
+from app.db import Base
 
 config = context.config
 if config.config_file_name is not None:

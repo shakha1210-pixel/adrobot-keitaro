@@ -1,10 +1,10 @@
 """Тесты редактора кампаний: детали, добавление/удаление офферов, доли."""
+
 from __future__ import annotations
 
 import json
 
 import httpx
-
 from conftest import API, json_response
 
 CAMPAIGN = {
@@ -40,7 +40,8 @@ GEO_STREAM = {
 def _register_world(api, offers=None):
     """Регистрирует моки редактора; state хранит текущие офферы потока 1282."""
     offers = list(
-        offers if offers is not None
+        offers
+        if offers is not None
         else [{"id": 41, "offer_id": 4, "share": 100, "state": "active"}]
     )
     state = {"offers": offers}
@@ -54,6 +55,23 @@ def _register_world(api, offers=None):
             "position": 2,
             "state": "active",
             "schema": "offers",
+            # Поля, которыми редактор НЕ управляет, но обязан сохранить при PUT:
+            "action_options": {"header": "X-Foo: bar"},
+            "comments": "keep me intact",
+            "collect_clicks": True,
+            "filter_or": True,
+            "chance": 14,
+            "triggers": [
+                {
+                    "id": 91,
+                    "condition": "always",
+                    "target": "stream",
+                    "action": "disable",
+                    "interval": 60,
+                }
+            ],
+            "landings": [{"id": 46, "landing_id": 26, "share": 100, "state": "active"}],
+            "filters": [{"id": 999, "name": "uniqueness", "mode": "reject", "payload": "stream"}],
             "offers": state["offers"],
         }
 
@@ -61,9 +79,7 @@ def _register_world(api, offers=None):
     api.get(f"{API}/campaigns/734/streams").mock(
         side_effect=lambda _: json_response([GEO_STREAM, stream_payload()])
     )
-    api.get(f"{API}/streams/1282").mock(
-        side_effect=lambda _: json_response(stream_payload())
-    )
+    api.get(f"{API}/streams/1282").mock(side_effect=lambda _: json_response(stream_payload()))
     api.get(f"{API}/streams/1281").mock(return_value=json_response(GEO_STREAM))
     api.get(f"{API}/offers").mock(
         return_value=json_response(
@@ -133,9 +149,7 @@ def test_detail_with_stats(client, api):
 
 def test_add_offer_recalculates_shares(client, api):
     _register_world(api)
-    resp = client.post(
-        "/api/campaigns/734/streams/1282/offers", json={"offer_id": 12}
-    )
+    resp = client.post("/api/campaigns/734/streams/1282/offers", json={"offer_id": 12})
     assert resp.status_code == 200, resp.text
     offers = resp.json()["stream"]["offers"]
     assert [o["offer_id"] for o in offers] == [4, 12]
@@ -160,9 +174,12 @@ def test_add_three_offers_shares(client, api):
                 {"id": offer_id, "name": f"Offer {offer_id}", "state": "active"}
             )
         )
-        assert client.post(
-            "/api/campaigns/734/streams/1282/offers", json={"offer_id": offer_id}
-        ).status_code == 200
+        assert (
+            client.post(
+                "/api/campaigns/734/streams/1282/offers", json={"offer_id": offer_id}
+            ).status_code
+            == 200
+        )
     resp = client.get("/api/campaigns/734")
     shares = resp.json()["streams"][1]["offers"]
     assert [o["share"] for o in shares] == [34, 33, 33]
@@ -184,10 +201,13 @@ def test_add_to_redirect_stream_rejected(client, api):
 
 
 def test_remove_offer(client, api):
-    _register_world(api, offers=[
-        {"id": 41, "offer_id": 4, "share": 50, "state": "active"},
-        {"id": 42, "offer_id": 12, "share": 50, "state": "active"},
-    ])
+    _register_world(
+        api,
+        offers=[
+            {"id": 41, "offer_id": 4, "share": 50, "state": "active"},
+            {"id": 42, "offer_id": 12, "share": 50, "state": "active"},
+        ],
+    )
     resp = client.delete("/api/campaigns/734/streams/1282/offers/4")
     assert resp.status_code == 200
     offers = resp.json()["stream"]["offers"]
@@ -220,3 +240,76 @@ def test_campaign_not_found(client, api):
     resp = client.get("/api/campaigns/999")
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "not_found"
+
+
+def test_update_preserves_unmanaged_stream_fields(client, api):
+    """Регрессия: PUT потока при правке офферов не должен терять triggers,
+    comments, filter_or, action_options, chance, landings, filters."""
+    _register_world(api)
+    resp = client.post("/api/campaigns/734/streams/1282/offers", json={"offer_id": 12})
+    assert resp.status_code == 200
+
+    sent = json.loads(api.put(f"{API}/streams/1282").calls[0].request.content)
+    assert sent["triggers"][0]["condition"] == "always"
+    assert sent["comments"] == "keep me intact"
+    assert sent["filter_or"] is True
+    assert sent["action_options"] == {"header": "X-Foo: bar"}
+    assert sent["chance"] == 14
+    assert sent["collect_clicks"] is True
+    assert sent["landings"][0]["landing_id"] == 26
+    assert sent["filters"][0]["name"] == "uniqueness"
+    # Изменены ТОЛЬКО привязки офферов
+    assert sent["offers"] == [
+        {"id": 41, "offer_id": 4, "share": 50},
+        {"offer_id": 12, "share": 50},
+    ]
+
+
+def test_detail_survives_report_failure(client, api):
+    """Регрессия: сбой отчёта не должен ронять просмотр кампании."""
+    _register_world(api)
+    api.post(f"{API}/report/build").mock(
+        return_value=httpx.Response(500, json={"message": "report exploded"})
+    )
+    resp = client.get("/api/campaigns/734")
+    assert resp.status_code == 200
+    stats = resp.json()["stats"]
+    assert stats["clicks"] == 0
+    assert stats["conversions"] == 0
+    assert resp.json()["streams"][1]["offers"][0]["share"] == 100
+
+
+def test_add_offer_invalid_id_rejected(client, api):
+    _register_world(api)
+    resp = client.post("/api/campaigns/734/streams/1282/offers", json={"offer_id": 0})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation"
+
+
+def test_repeated_add_remove_keeps_shares_consistent(client, api):
+    """Повторные операции не должны разъезжать доли: сумма всегда 100%."""
+    _register_world(api)
+    for offer_id in (12, 15):
+        api.get(f"{API}/offers/{offer_id}").mock(
+            return_value=json_response(
+                {"id": offer_id, "name": f"Offer {offer_id}", "state": "active"}
+            )
+        )
+    # добавить 12
+    assert (
+        client.post("/api/campaigns/734/streams/1282/offers", json={"offer_id": 12}).status_code
+        == 200
+    )
+    # повторно добавить 12 — конфликт, состояние не меняется
+    resp = client.post("/api/campaigns/734/streams/1282/offers", json={"offer_id": 12})
+    assert resp.status_code == 409
+    # добавить 15 → 3 оффера, доли в сумме 100
+    assert (
+        client.post("/api/campaigns/734/streams/1282/offers", json={"offer_id": 15}).status_code
+        == 200
+    )
+    # удалить 12 → снова 2 оффера
+    assert client.delete("/api/campaigns/734/streams/1282/offers/12").status_code == 200
+    final = client.get("/api/campaigns/734").json()["streams"][1]["offers"]
+    assert sum(o["share"] for o in final) == 100
+    assert all(o["share"] > 0 for o in final)

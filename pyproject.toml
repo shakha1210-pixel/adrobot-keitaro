@@ -1,0 +1,43 @@
+[project]
+name = "adrobot-keitaro"
+version = "1.0.0"
+description = "Обёртка над Admin API Keitaro: создатель кампаний и редактор офферов"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "respx>=0.21",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore:Field name \"schema\" in \"StreamOut\" shadows an attribute:UserWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "B008",   # Depends(...) в дефолтах функций — допустимо для FastAPI
+    "SIM105", # contextlib.suppress не везде уместнее try/except
+    # Русскоязычный проект: кириллица в строках/докстрингах/комментариях — норма,
+    # а не «confusable» символы.
+    "RUF001", "RUF002", "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "B017"]
+"scripts/*" = ["B017", "S101"]
+
+[tool.ruff.format]
+quote-style = "double"

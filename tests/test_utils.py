@@ -1,4 +1,5 @@
 """Юнит-тесты утилит: доли и alias."""
+
 from __future__ import annotations
 
 import re

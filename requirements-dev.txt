@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# тесты
+pytest>=8.0
+respx>=0.21
+
+# линтер и форматтер
+ruff>=0.6

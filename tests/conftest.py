@@ -1,4 +1,5 @@
 """Фикстуры pytest: окружение, БД, клиент, моки справочников Keitaro."""
+
 from __future__ import annotations
 
 import json
@@ -17,13 +18,13 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///./test_adrobot.db")
 os.environ.setdefault("KEITARO_RETRIES", "0")
 os.environ.setdefault("OFFERS_CACHE_TTL", "300")
 
-import httpx  # noqa: E402
-import pytest  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import text
 
-from app.db import Base, engine  # noqa: E402
-from app.main import app  # noqa: E402
+from app.db import Base, engine
+from app.main import app
 
 API = "https://keitaro.test/admin_api/v1"
 
@@ -46,7 +47,11 @@ def _clean_operations():
 
 @pytest.fixture()
 def client():
-    with TestClient(app) as c:
+    # raise_server_exceptions=False: в Starlette обработчик для Exception
+    # живёт в ServerErrorMiddleware, который ПОСЛЕ отправки 500-ответа
+    # всегда перевыбрасывает исключение (документированное поведение).
+    # В проде ответ доставляется uvicorn'ом; в тестах мы проверяем именно ответ.
+    with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 

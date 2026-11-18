@@ -1,4 +1,5 @@
 """campaigns: создание, список, детали, добавление/удаление офферов."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
@@ -58,8 +59,10 @@ async def list_campaigns(
         name = str(d.get("name") or "")
         if prefix and not name.startswith(settings.campaign_prefix):
             continue
-        if q and q.strip() and not (
-            q.strip().lower() in name.lower() or str(d.get("id")).startswith(q.strip())
+        if (
+            q
+            and q.strip()
+            and not (q.strip().lower() in name.lower() or str(d.get("id")).startswith(q.strip()))
         ):
             continue
         items.append(build_campaign_out(Campaign.from_dict(d), refs, settings))

@@ -1,8 +1,8 @@
 """Тесты /health и /api/meta."""
+
 from __future__ import annotations
 
 import httpx
-
 from conftest import API
 
 

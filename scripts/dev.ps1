@@ -1,5 +1,6 @@
 # Windows: создаёт venv, ставит зависимости, применяет миграции, запускает сервер.
-# Использование:  .\scripts\dev.ps1
+# Использование:  .\scripts\dev.ps1            (полная установка и запуск)
+#                 .\scripts\dev.ps1 -SkipInstall   (только миграции и запуск)
 param([switch]$SkipInstall)
 
 $ErrorActionPreference = "Stop"
@@ -11,7 +12,7 @@ if (-not (Test-Path ".venv")) {
 
 if (-not $SkipInstall) {
     & .\.venv\Scripts\python.exe -m pip install --upgrade pip
-    & .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+    & .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 }
 
 if (-not (Test-Path ".env")) {

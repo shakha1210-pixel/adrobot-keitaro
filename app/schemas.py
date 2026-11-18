@@ -1,4 +1,5 @@
 """Pydantic-схемы запросов/ответов нашего API."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -7,8 +8,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from .countries import is_valid_country_code
 
-
 # ---------- Запросы ----------
+
 
 class CampaignCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255, description="Название кампании (с префиксом)")
@@ -20,7 +21,9 @@ class CampaignCreateRequest(BaseModel):
     def _normalize_geo(cls, v: str) -> str:
         v = v.strip().upper()
         if not is_valid_country_code(v):
-            raise ValueError(f"Неизвестный гео-код страны: {v!r}. Используйте ISO-3166 (например, UZ).")
+            raise ValueError(
+                f"Неизвестный гео-код страны: {v!r}. Используйте ISO-3166 (например, UZ)."
+            )
         return v
 
 
@@ -29,6 +32,7 @@ class AddOfferRequest(BaseModel):
 
 
 # ---------- Ответы ----------
+
 
 class OfferOut(BaseModel):
     id: int
@@ -50,7 +54,7 @@ class FilterOut(BaseModel):
 
 
 class StreamOfferOut(BaseModel):
-    id: int | None = None          # id привязки оффера к потоку (stream_offer)
+    id: int | None = None  # id привязки оффера к потоку (stream_offer)
     offer_id: int
     offer_name: str | None = None
     share: int
@@ -152,3 +156,13 @@ class HealthOut(BaseModel):
     keitaro: str
     db: str
     version: str = "1.0.0"
+
+
+class LivenessOut(BaseModel):
+    status: str = "ok"
+
+
+class ReadinessOut(BaseModel):
+    status: str
+    db: str
+    keitaro: str

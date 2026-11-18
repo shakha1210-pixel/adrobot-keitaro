@@ -1,9 +1,9 @@
 """Справочники Keitaro: домен/группа/источник по имени → ID (с кэшем на время жизни процесса)."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
 from ..config import Settings
 from ..errors import KeitaroApiError
@@ -58,9 +58,12 @@ class ReferenceService:
             if source is None:
                 missing.append(f"источник «{self._settings.default_source}»")
             if missing:
+                # Собственное безопасное сообщение — показываем клиенту как есть.
                 raise KeitaroApiError(
-                    "Не найдено в Keitaro: " + ", ".join(missing)
-                    + ". Проверьте DEFAULT_DOMAIN / DEFAULT_GROUP / DEFAULT_SOURCE в .env."
+                    "Не найдено в Keitaro: "
+                    + ", ".join(missing)
+                    + ". Проверьте DEFAULT_DOMAIN / DEFAULT_GROUP / DEFAULT_SOURCE в .env.",
+                    public=True,
                 )
 
             self._domains, self._groups, self._sources = domains, groups, sources
@@ -69,8 +72,12 @@ class ReferenceService:
                 "group": {"id": int(group["id"]), "name": group.get("name")},
                 "source": {"id": int(source["id"]), "name": source.get("name")},
             }
-            log.info("reference resolved: domain=%s group=%s source=%s",
-                     self._refs["domain"]["id"], self._refs["group"]["id"], self._refs["source"]["id"])
+            log.info(
+                "reference resolved: domain=%s group=%s source=%s",
+                self._refs["domain"]["id"],
+                self._refs["group"]["id"],
+                self._refs["source"]["id"],
+            )
             return self._refs
 
     def domain_name(self, domain_id: int | None) -> str | None:

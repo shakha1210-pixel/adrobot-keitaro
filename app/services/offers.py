@@ -1,4 +1,5 @@
 """Поиск офферов для автокомплита (кэш списка на N секунд)."""
+
 from __future__ import annotations
 
 import time
@@ -31,15 +32,11 @@ class OfferSearchService:
 
     async def search(self, q: str | None = None, limit: int = 20) -> list[Offer]:
         offers = [
-            o for o in await self._all()
-            if (o.state or "active").lower() not in _ARCHIVED_STATES
+            o for o in await self._all() if (o.state or "active").lower() not in _ARCHIVED_STATES
         ]
         if q:
             needle = q.strip().lower()
-            offers = [
-                o for o in offers
-                if needle in o.name.lower() or str(o.id).startswith(needle)
-            ]
+            offers = [o for o in offers if needle in o.name.lower() or str(o.id).startswith(needle)]
         offers.sort(key=lambda o: o.id)
         return offers[:limit]
 

@@ -5,6 +5,7 @@
 
 При сбое на шаге потоков созданная кампания удаляется (откат).
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,14 +23,49 @@ from .views import build_campaign_out, build_stream_out
 
 log = logging.getLogger("adrobot.creator")
 
-_TRANSLIT = str.maketrans({
-    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
-    "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
-    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
-    "ф": "f", "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch",
-    "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
-    "ў": "u", "ғ": "g", "қ": "q", "ҳ": "h", "ʻ": "", "ʼ": "",
-})
+_TRANSLIT = str.maketrans(
+    {
+        "а": "a",
+        "б": "b",
+        "в": "v",
+        "г": "g",
+        "д": "d",
+        "е": "e",
+        "ё": "e",
+        "ж": "zh",
+        "з": "z",
+        "и": "i",
+        "й": "y",
+        "к": "k",
+        "л": "l",
+        "м": "m",
+        "н": "n",
+        "о": "o",
+        "п": "p",
+        "р": "r",
+        "с": "s",
+        "т": "t",
+        "у": "u",
+        "ф": "f",
+        "х": "h",
+        "ц": "ts",
+        "ч": "ch",
+        "ш": "sh",
+        "щ": "sch",
+        "ъ": "",
+        "ы": "y",
+        "ь": "",
+        "э": "e",
+        "ю": "yu",
+        "я": "ya",
+        "ў": "u",
+        "ғ": "g",
+        "қ": "q",
+        "ҳ": "h",
+        "ʻ": "",
+        "ʼ": "",
+    }
+)
 
 
 def generate_alias(name: str) -> str:
@@ -83,41 +119,55 @@ class CampaignCreatorService:
             "cost_currency": "USD",
             "cost_auto": False,
         }
-        campaign_data = await self._client.create_campaign(campaign_payload)
+        try:
+            campaign_data = await self._client.create_campaign(campaign_payload)
+        except Exception as exc:
+            # ID неизвестен (ресурс мог быть создан, но Keitaro не подтвердил) —
+            # откатить нельзя, фиксируем в аудите и сообщаем о сверке.
+            log_operation(
+                "create_campaign",
+                campaign_name=req.name,
+                payload={"name": req.name, "geo": req.geo, "offer_id": req.offer_id},
+                status="error",
+                error=str(exc),
+            )
+            raise
         campaign_id = int(campaign_data.get("id") or 0)
         if not campaign_id:
-            raise KeitaroApiError("Keitaro не вернул ID созданной кампании.")
+            raise KeitaroApiError("Keitaro не вернул ID созданной кампании.", public=True)
 
         try:
-            await self._client.create_stream({
-                "campaign_id": campaign_id,
-                "type": "regular",
-                "name": f"{req.geo} → Google",
-                "position": 1,
-                "state": "active",
-                "schema": "redirect",
-                "action_type": "http",
-                "action_payload": settings.redirect_url,
-                "collect_clicks": True,
-                "filters": [
-                    {"name": "country_code", "mode": "allow", "payload": [req.geo]}
-                ],
-            })
-            await self._client.create_stream({
-                "campaign_id": campaign_id,
-                "type": "regular",
-                "name": f"→ {offer_name}"[:255],
-                "position": 2,
-                "state": "active",
-                "schema": "offers",
-                "collect_clicks": True,
-                "offers": [{"offer_id": req.offer_id, "share": 100}],
-            })
-        except Exception as exc:  # noqa: BLE001 — частичный сбой → откат
+            await self._client.create_stream(
+                {
+                    "campaign_id": campaign_id,
+                    "type": "regular",
+                    "name": f"{req.geo} → Google",
+                    "position": 1,
+                    "state": "active",
+                    "schema": "redirect",
+                    "action_type": "http",
+                    "action_payload": settings.redirect_url,
+                    "collect_clicks": True,
+                    "filters": [{"name": "country_code", "mode": "allow", "payload": [req.geo]}],
+                }
+            )
+            await self._client.create_stream(
+                {
+                    "campaign_id": campaign_id,
+                    "type": "regular",
+                    "name": f"→ {offer_name}"[:255],
+                    "position": 2,
+                    "state": "active",
+                    "schema": "offers",
+                    "collect_clicks": True,
+                    "offers": [{"offer_id": req.offer_id, "share": 100}],
+                }
+            )
+        except Exception as exc:
             log.error("сбой при создании потоков кампании %s, откатываем: %s", campaign_id, exc)
             try:
                 await self._client.delete_campaign(campaign_id)
-            except Exception as rollback_exc:  # noqa: BLE001
+            except Exception as rollback_exc:
                 log.error("не удалось откатить кампанию %s: %s", campaign_id, rollback_exc)
             log_operation(
                 "create_campaign",

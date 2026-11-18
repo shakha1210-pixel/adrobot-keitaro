@@ -7,6 +7,7 @@
 
 Контракт повторяет Admin API v1: https://gist.github.com/asabirov/3cd29f43de41bd76ab93de073a7883a9
 """
+
 from __future__ import annotations
 
 import json
@@ -18,16 +19,46 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8999
 ROOT = "/admin_api/v1"
 
 OFFERS = [
-    {"id": 1, "name": "Nutra Keto (US)", "country": "US", "payout_value": "25.0000",
-     "payout_currency": "USD", "state": "active"},
-    {"id": 2, "name": "Crypto Casino (DE)", "country": "DE", "payout_value": "180.0000",
-     "payout_currency": "EUR", "state": "active"},
-    {"id": 3, "name": "VPN Sub (UZ)", "country": "UZ", "payout_value": "4.5000",
-     "payout_currency": "USD", "state": "active"},
-    {"id": 4, "name": "Sweepstakes (BR)", "country": "BR", "payout_value": "12.0000",
-     "payout_currency": "USD", "state": "active"},
-    {"id": 5, "name": "Dating Mainstream (PL)", "country": "PL", "payout_value": "8.0000",
-     "payout_currency": "USD", "state": "disabled"},
+    {
+        "id": 1,
+        "name": "Nutra Keto (US)",
+        "country": "US",
+        "payout_value": "25.0000",
+        "payout_currency": "USD",
+        "state": "active",
+    },
+    {
+        "id": 2,
+        "name": "Crypto Casino (DE)",
+        "country": "DE",
+        "payout_value": "180.0000",
+        "payout_currency": "EUR",
+        "state": "active",
+    },
+    {
+        "id": 3,
+        "name": "VPN Sub (UZ)",
+        "country": "UZ",
+        "payout_value": "4.5000",
+        "payout_currency": "USD",
+        "state": "active",
+    },
+    {
+        "id": 4,
+        "name": "Sweepstakes (BR)",
+        "country": "BR",
+        "payout_value": "12.0000",
+        "payout_currency": "USD",
+        "state": "active",
+    },
+    {
+        "id": 5,
+        "name": "Dating Mainstream (PL)",
+        "country": "PL",
+        "payout_value": "8.0000",
+        "payout_currency": "USD",
+        "state": "disabled",
+    },
 ]
 
 DOMAINS = [{"id": 3, "name": "in.posdk.xyz", "state": "active"}]
@@ -154,7 +185,9 @@ class Handler(BaseHTTPRequestHandler):
             for stream in STREAMS.values():
                 for offer in stream.get("offers") or []:
                     rows.append(_stats(stream["id"], offer["offer_id"]))
-            return self._send({"rows": rows, "total": len(rows), "meta": {"execution_time": "0.001"}})
+            return self._send(
+                {"rows": rows, "total": len(rows), "meta": {"execution_time": "0.001"}}
+            )
 
         self._send({"message": f"Route {method} {path} not found"}, 404)
 

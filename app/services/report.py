@@ -1,4 +1,5 @@
 """Статистика по офферам потоков из отчёта Keitaro (POST /report/build)."""
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +13,7 @@ log = logging.getLogger("adrobot.report")
 
 def _to_int(value) -> int:
     try:
-        return int(round(float(value)))
+        return round(float(value))  # round(float) возвращает int
     except (TypeError, ValueError):
         return 0
 
@@ -33,7 +34,7 @@ class OfferStats:
     cr: float = 0.0
 
     @classmethod
-    def from_row(cls, row: dict) -> "OfferStats":
+    def from_row(cls, row: dict) -> OfferStats:
         return cls(
             clicks=_to_int(row.get("clicks")),
             unique_clicks=_to_int(row.get("stream_unique_clicks")),
@@ -60,9 +61,7 @@ def _report_payload(settings: Settings, campaign_id: int) -> dict:
         "range": {"interval": settings.report_interval, "timezone": settings.report_timezone},
         "grouping": ["stream_id", "offer_id"],
         "metrics": ["clicks", "stream_unique_clicks", "bots", "conversions", "cr"],
-        "filters": [
-            {"name": "campaign_id", "operator": "EQUALS", "expression": campaign_id}
-        ],
+        "filters": [{"name": "campaign_id", "operator": "EQUALS", "expression": campaign_id}],
         "sort": [{"name": "clicks", "order": "DESC"}],
     }
 
@@ -74,7 +73,7 @@ async def fetch_stream_offer_stats(
     try:
         data = await client.build_report(_report_payload(settings, campaign_id))
         rows = data.get("rows", []) if isinstance(data, dict) else []
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.warning("report/build failed for campaign %s: %s", campaign_id, exc)
         return {}, CampaignTotals()
 

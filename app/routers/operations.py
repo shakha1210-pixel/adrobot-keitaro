@@ -1,7 +1,13 @@
-"""operations: история операций (аудит из собственной БД)."""
+"""operations: история операций (аудит из собственной БД).
+
+Синхронный SQLAlchemy выполняется в потоке (run_in_threadpool), чтобы не
+блокировать event loop.
+"""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
+from fastapi.concurrency import run_in_threadpool
 
 from ..db import SessionLocal
 from ..models import OperationLog
@@ -15,15 +21,9 @@ def _iso_utc(dt) -> str:
     return text + "Z" if dt.tzinfo is None else text.replace("+00:00", "Z")
 
 
-@router.get("/api/operations", response_model=OperationListOut, tags=["operations"])
-def list_operations(limit: int = Query(default=50, ge=1, le=200)) -> OperationListOut:
+def _load_operations(limit: int) -> OperationListOut:
     with SessionLocal() as session:
-        rows = (
-            session.query(OperationLog)
-            .order_by(OperationLog.id.desc())
-            .limit(limit)
-            .all()
-        )
+        rows = session.query(OperationLog).order_by(OperationLog.id.desc()).limit(limit).all()
         items = [
             OperationOut(
                 id=r.id,
@@ -37,3 +37,8 @@ def list_operations(limit: int = Query(default=50, ge=1, le=200)) -> OperationLi
             for r in rows
         ]
     return OperationListOut(items=items)
+
+
+@router.get("/api/operations", response_model=OperationListOut, tags=["operations"])
+async def list_operations(limit: int = Query(default=50, ge=1, le=200)) -> OperationListOut:
+    return await run_in_threadpool(_load_operations, limit)

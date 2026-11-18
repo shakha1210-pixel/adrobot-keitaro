@@ -3,6 +3,7 @@
 Правило долей: после каждого изменения сумма = 100%, распределение поровну,
 остаток от деления отдаётся первым офферам в списке.
 """
+
 from __future__ import annotations
 
 import logging
@@ -110,32 +111,29 @@ class CampaignEditorService:
     def _require_offers_stream(self, stream: Stream) -> None:
         if stream.schema != "offers":
             raise ValidationError(
-                "В этом потоке нельзя управлять офферами: он создан для редиректа, а не для офферов."
+                "В этом потоке нельзя управлять офферами: он создан для редиректа, "
+                "а не для офферов."
             )
 
     def _update_payload(self, stream: Stream, offers: list[StreamOfferBinding]) -> dict:
-        return {
-            "id": stream.id,
-            "campaign_id": stream.campaign_id,
-            "type": stream.type or "regular",
-            "name": stream.name,
-            "position": stream.position,
-            "state": stream.state or "active",
-            "schema": stream.schema,
-            "action_type": stream.action_type,
-            "action_payload": stream.action_payload,
-            "collect_clicks": True,
-            "filters": [
-                {"id": f.id, "name": f.name, "mode": f.mode, "payload": f.payload}
-                for f in stream.filters
-            ],
-            "offers": [
-                {"id": b.id, "offer_id": b.offer_id, "share": b.share}
-                if b.id is not None
-                else {"offer_id": b.offer_id, "share": b.share}
-                for b in offers
-            ],
-        }
+        """Тело PUT /streams/{id}.
+
+        Строится от ИСХОДНОГО представления потока (raw из GET), чтобы не
+        потерять поля, которыми приложение не управляет: triggers, comments,
+        filter_or, chance, action_options, landings и т.д. Меняем только
+        привязки офферов (offers) — единственное, чем управляет редактор.
+        """
+        payload = dict(stream.raw) if stream.raw else {}
+        payload["id"] = stream.id
+        payload["campaign_id"] = stream.campaign_id
+        payload["schema"] = stream.schema
+        payload["offers"] = [
+            {"id": b.id, "offer_id": b.offer_id, "share": b.share}
+            if b.id is not None
+            else {"offer_id": b.offer_id, "share": b.share}
+            for b in offers
+        ]
+        return payload
 
     async def add_offer(self, campaign_id: int, stream_id: int, offer_id: int) -> StreamOut:
         campaign = await self._load_campaign(campaign_id)
@@ -147,8 +145,8 @@ class CampaignEditorService:
 
         shares = distribute_shares(len(stream.offers) + 1)
         bindings = [
-            StreamOfferBinding(id=b.id, offer_id=b.offer_id, share=share, state=b.state)
-            for b, share in zip(stream.offers, shares)
+            StreamOfferBinding(id=b.id, offer_id=b.offer_id, share=shares[i], state=b.state)
+            for i, b in enumerate(stream.offers)
         ]
         bindings.append(StreamOfferBinding(offer_id=offer_id, share=shares[-1]))
 
@@ -175,8 +173,8 @@ class CampaignEditorService:
 
         shares = distribute_shares(len(remaining))
         bindings = [
-            StreamOfferBinding(id=b.id, offer_id=b.offer_id, share=share, state=b.state)
-            for b, share in zip(remaining, shares)
+            StreamOfferBinding(id=b.id, offer_id=b.offer_id, share=shares[i], state=b.state)
+            for i, b in enumerate(remaining)
         ]
         await self._client.update_stream(stream_id, self._update_payload(stream, bindings))
         log_operation(

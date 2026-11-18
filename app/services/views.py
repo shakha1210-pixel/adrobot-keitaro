@@ -1,4 +1,5 @@
 """Преобразование DTO Keitaro в схемы ответов нашего API."""
+
 from __future__ import annotations
 
 from ..config import Settings
@@ -13,11 +14,7 @@ def build_campaign_out(
     refs: ReferenceService,
     settings: Settings,
 ) -> CampaignOut:
-    domain = (
-        campaign.domain
-        or refs.domain_name(campaign.domain_id)
-        or settings.default_domain
-    )
+    domain = campaign.domain or refs.domain_name(campaign.domain_id) or settings.default_domain
     url = f"https://{domain}/{campaign.alias}" if domain and campaign.alias else None
     return CampaignOut(
         id=campaign.id,

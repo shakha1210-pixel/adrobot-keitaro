@@ -1,8 +1,8 @@
 """Тесты поиска офферов (автокомплит)."""
+
 from __future__ import annotations
 
 import httpx
-
 from conftest import API
 
 OFFERS = [

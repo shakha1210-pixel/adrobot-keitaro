@@ -2,13 +2,15 @@
 
 Запуск: uvicorn app.main:app --reload  →  http://127.0.0.1:8000
 """
+
 from __future__ import annotations
 
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
@@ -46,9 +48,20 @@ app = FastAPI(
 
 install_error_handlers(app)
 
-app.include_router(meta.router)          # /health, /api/meta
-app.include_router(offers.router)        # /api/offers
-app.include_router(campaigns.router)     # /api/campaigns...
-app.include_router(operations.router)    # /api/operations
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """Корреляционный ID: принимает X-Request-ID клиента или генерирует свой."""
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+app.include_router(meta.router)  # /health, /health/live, /health/ready, /api/meta
+app.include_router(offers.router)  # /api/offers
+app.include_router(campaigns.router)  # /api/campaigns...
+app.include_router(operations.router)  # /api/operations
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
