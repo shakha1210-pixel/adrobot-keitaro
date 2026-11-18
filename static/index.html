@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adrobot — управление кампаниями Keitaro</title>
+  <meta name="description" content="Панель управления кампаниями Keitaro: создание кампаний, потоки, офферы, история операций.">
+  <meta name="theme-color" content="#0A0E17">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="app-header">
+    <div class="header-top">
+      <a class="brand" href="#" aria-label="Adrobot">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="34" height="34">
+            <defs>
+              <linearGradient id="logoG" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#6D5DF6"/>
+                <stop offset="1" stop-color="#22D3EE"/>
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#logoG)"/>
+            <path d="M22 47 L32 19 L42 47 M26.5 36.5 H37.5" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">Adrobot<small>Keitaro Admin</small></span>
+      </a>
+      <div id="healthBadge" class="health health--loading" role="status" title="Проверка подключения…">
+        <span class="health-dot" aria-hidden="true"></span>
+        <span class="health-label">Проверка подключения…</span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Разделы">
+      <button type="button" class="tab is-active" id="tab-btn-create" role="tab" aria-selected="true" aria-controls="tab-create" data-tab="create">Новая кампания</button>
+      <button type="button" class="tab" id="tab-btn-editor" role="tab" aria-selected="false" aria-controls="tab-editor" data-tab="editor">Редактор кампаний</button>
+      <button type="button" class="tab" id="tab-btn-history" role="tab" aria-selected="false" aria-controls="tab-history" data-tab="history">История операций</button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    <div id="metaBanner" class="banner banner--error" hidden role="alert"></div>
+
+    <!-- Вкладка 1: Новая кампания -->
+    <section id="tab-create" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-create">
+      <div class="page-head">
+        <h1>Новая кампания</h1>
+        <p class="page-sub">Создание кампании в Keitaro: поток гео-редиректа и поток офферов</p>
+      </div>
+
+      <div id="creatorFormWrap">
+        <form id="creatorForm" class="card form-card" novalidate>
+          <div class="form-grid">
+            <div class="field">
+              <label class="field-label" for="nameInput">Название кампании</label>
+              <input id="nameInput" class="input input--mono" type="text" autocomplete="off" spellcheck="false" placeholder="Загрузка конфигурации…" disabled aria-describedby="nameHint">
+              <p class="field-hint" id="nameHint">Конфигурация загружается…</p>
+            </div>
+
+            <div class="field">
+              <label class="field-label" for="geoInput">Гео (страна)</label>
+              <div class="combobox" id="geoCombo">
+                <input id="geoInput" class="input input--mono" type="text" maxlength="2" autocomplete="off" spellcheck="false" placeholder="UZ" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="geoList" aria-describedby="geoHint">
+                <button type="button" class="cb-caret" tabindex="-1" aria-hidden="true">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div id="geoList" class="cb-list" role="listbox" aria-label="Список стран" hidden></div>
+              </div>
+              <p class="field-hint" id="geoHint">Выберите страну из списка или введите код из 2 латинских букв</p>
+            </div>
+
+            <div class="field field--wide">
+              <label class="field-label" for="offerInput">Оффер Keitaro</label>
+              <div class="combobox" id="offerCombo">
+                <input id="offerInput" class="input" type="text" autocomplete="off" spellcheck="false" placeholder="Начните вводить название оффера…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="offerList" aria-describedby="offerHint">
+                <button type="button" class="cb-caret" tabindex="-1" aria-hidden="true">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div id="offerList" class="cb-list" role="listbox" aria-label="Список офферов" hidden></div>
+              </div>
+              <input type="hidden" id="offerIdInput">
+              <div id="offerSelected" class="selected-chip" hidden></div>
+              <p class="field-hint" id="offerHint">Оффер будет назначен на второй поток кампании</p>
+            </div>
+          </div>
+
+          <div id="formError" class="form-error" hidden role="alert"></div>
+
+          <div class="form-actions">
+            <button type="submit" id="createBtn" class="btn btn--primary" disabled>Создать кампанию</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="createSuccess" hidden></div>
+    </section>
+
+    <!-- Вкладка 2: Редактор кампаний -->
+    <section id="tab-editor" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-editor" hidden>
+      <div class="page-head">
+        <h1>Редактор кампаний</h1>
+        <p class="page-sub">Потоки, фильтры и распределение офферов выбранной кампании</p>
+      </div>
+
+      <div class="card picker-card">
+        <div class="picker-row">
+          <div class="combobox picker-combo" id="campaignCombo">
+            <input id="campaignInput" class="input" type="text" autocomplete="off" spellcheck="false" placeholder="Найти кампанию по названию или ID…" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="campaignList">
+            <button type="button" class="cb-caret" tabindex="-1" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div id="campaignList" class="cb-list" role="listbox" aria-label="Список кампаний" hidden></div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="showAllToggle">
+            <span class="toggle-ui" aria-hidden="true"></span>
+            <span class="toggle-label">показать все</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="editorContent"></div>
+    </section>
+
+    <!-- Вкладка 3: История операций -->
+    <section id="tab-history" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-history" hidden>
+      <div class="page-head page-head--row">
+        <div>
+          <h1>История операций</h1>
+          <p class="page-sub">Последние 50 операций Adrobot с API Keitaro</p>
+        </div>
+        <div class="head-actions">
+          <button id="autoRefreshBtn" class="btn btn--ghost btn--sm" type="button"><span class="auto-dot" aria-hidden="true"></span>Автообновление: выкл</button>
+          <button id="refreshHistoryBtn" class="btn btn--ghost btn--sm" type="button">Обновить</button>
+        </div>
+      </div>
+
+      <div class="card table-card" id="historyWrap">
+        <div class="table-scroll">
+          <table class="table ops-table">
+            <thead>
+              <tr><th>Время</th><th>Действие</th><th>Кампания</th><th>Статус</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><div class="skel skel--w90"></div></td><td><div class="skel skel--w60"></div></td><td><div class="skel skel--w80"></div></td><td><div class="skel skel--w40"></div></td></tr>
+              <tr><td><div class="skel skel--w90"></div></td><td><div class="skel skel--w60"></div></td><td><div class="skel skel--w80"></div></td><td><div class="skel skel--w40"></div></td></tr>
+              <tr><td><div class="skel skel--w90"></div></td><td><div class="skel skel--w60"></div></td><td><div class="skel skel--w80"></div></td><td><div class="skel skel--w40"></div></td></tr>
+              <tr><td><div class="skel skel--w90"></div></td><td><div class="skel skel--w60"></div></td><td><div class="skel skel--w80"></div></td><td><div class="skel skel--w40"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="app-footer" id="appFooter" hidden></footer>
+  </main>
+
+  <div id="toastRoot" class="toast-root" aria-live="polite"></div>
+  <div id="modalRoot" class="modal-root" hidden></div>
+
+  <noscript>
+    <div class="noscript">Для работы Adrobot необходимо включить JavaScript.</div>
+  </noscript>
+
+  <script src="app.js"></script>
+</body>
+</html>
