@@ -54,6 +54,8 @@
 - har bir offer bo'yicha statistika (klik, unik, bot, konversiya, CR) bevosita `POST /report/build`dan;
 - offerlarni tahrirlaganda **oqimning boshqa konfiguratsiyasi yo'qolmaydi**: PUT oqimning asl ko'rinishidan quriladi (triggers, comments, filter_or, chance, action_options, landings saqlanadi) — regressiya testi bilan qoplangan.
 
+**Interfeys** — professional qorong'u mavzu, **ikki til: rus va o'zbek** (sarlavhadagi `RU | UZ` almashtirgichi, tanlov brauzerda eslab qolinadi, mamlakat nomlari va barcha xabarlar — ikkala tilda).
+
 ## Tez boshlash
 
 ```bash
@@ -262,7 +264,7 @@ adrobot-keitaro/
 
 - Keitaro maydonlarining aniq nomlari (`country_code` filtr, `POST /campaigns`da `domain_id`) Admin API v1 hujjati bilan solishtirilgan; agar sizning Keitaro versiyangiz qabul qilmasa — tuzatish bitta joyda (`app/services/campaign_creator.py`).
 - Oqim PUT'i — ko'rinishni to'liq almashtirish (Admin API v1 shunday ishlaydi); maydonlar saqlanishi asl payload yuborish bilan ta'minlanadi, lekin xatti-harakat hujjat va mok-serverda tekshirilgan — sizning Keitaro o'rnatmangizda emas.
-- UI rus tilida; til almashtirgich yo'q.
+- Interfeys — rus va o'zbek tillarida (sarlavhadagi almashtirgich); **backend xato xabarlari hozircha rus tilida** (mijoz xabarlari lokallashtirilgan, server xabarlari yo'q).
 - Muharrirda statistika tugma orqali yangilanadi (taymerli avto-yangilanish yo'q).
 
 ## AI agentlardan foydalanish

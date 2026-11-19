@@ -214,13 +214,13 @@ Axborot sizib chiqmasligi: integratsiya 5xx-xatolarining matni xavfsiz qoliplar 
 
 ## 12. Frontend
 
-Bitta sahifa (HTML + vanilla JS, build'siz), FastAPI `static/`dan beradi. Qorong'u mavzu, uchta tab:
+Bitta sahifa (HTML + vanilla JS, build'siz), FastAPI `static/`dan beradi. Qorong'u mavzu, uchta tab, **ikki til — RU/UZ** (sarlavhadagi almashtirgich, tanlov `localStorage`da saqlanadi, butun interfeys va mamlakat nomlari lokallashtirilgan; server xato xabarlari rus tilida, §16 ga qarang):
 
-- **«Yangi kampaniya»** — Name (prefiks tekshiruvi), Geo (ISO-kod tanlash + erkin kiritish), Offer (300 ms debounce bilan autocomplete), Create; yaratilgach — ikki oqimli kampaniya kartasi va muharrirga o'tish.
-- **«Kampaniya muharriri»** — kampaniya tanlash → karta (domen/guruh/manba, statistika tayllari) → oqim kartalari: filtr-chip'lar, ulushli offerlar jadvali (progress-bar'lar), statistika; qo'shish (autocomplete) va o'chirish (tasdiqlash bilan, oxirgisi bloklangan); toast xatolari, shu jumladan `keitaro_ambiguous`.
-- **«Operatsiyalar tarixi»** — `operation_log` audit jadvali.
+- **«Yangi kampaniya»** — Name (prefiks tekshiruvi), Geo (ISO-kod tanlash + erkin kiritish, kod va nom bo'yicha uch tilda qidiruv), Offer (300 ms debounce bilan autocomplete), Create; yaratilgach — ikki oqimli kampaniya kartasi, «Muharrirga o'tish» va «Keitaro» (admin panelni `meta.admin_url`dan ochadi) tugmalari.
+- **«Kampaniyalar muharriri»** — kampaniya tanlash (qidiruv + ro'yxatni yangilash tugmasi) → karta (domen/guruh/manba, statistika tayllari, «Keitaro») → oqim kartalari: filtr-chip'lar, ulushli oferlar jadvali (progress-bar'lar), statistika va ofer ID'ni nusxalash; qo'shish (autocomplete) va o'chirish (tasdiqlash bilan, oxirgisi bloklangan); toast xatolari, shu jumladan `keitaro_ambiguous`.
+- **«Amallar tarixi»** — `operation_log` audit jadvali.
 
-Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast'lar); `/api/meta` ochilmasa UI yiqilmaydi (banner + yaratuvchi o'chiriladi).
+Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast'lar; ma'lum xato kodlari lokallashtirilgan matnlarga ega); `/api/meta` ochilmasa UI yiqilmaydi (banner + yaratuvchi o'chiriladi).
 
 ## 13. Test
 

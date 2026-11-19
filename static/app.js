@@ -1,12 +1,13 @@
 'use strict';
 
 /* ============================================================
-   Adrobot — фронтенд панели управления Keitaro
-   Ванильный JS (ES2020+), без зависимостей и сборки.
-   API-контракт соответствует FastAPI-бэкенду Adrobot.
+   Adrobot — Keitaro campaign management frontend
+   Vanilla JS (ES2020+), no build step, no dependencies.
+   API contract matches the FastAPI backend (see docs).
+   i18n: RU/UZ, localStorage key "adrobot.lang".
    ============================================================ */
 
-/* ---------------- утилиты ---------------- */
+/* ---------------- utils ---------------- */
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -27,12 +28,12 @@ function num0(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-/* целое число с пробелами-разделителями: 1 234 */
+/* integer with thousand separators: 1 234 */
 function fmtInt(value) {
   return Math.trunc(num0(value)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
-/* строка-число (например payout_value "1.5000") с пробелами в целой части */
+/* numeric string (e.g. payout_value "1.5000") with separators in the integer part */
 function fmtDecimalStr(value) {
   if (value === null || value === undefined || value === '') return '0';
   const str = String(value);
@@ -41,18 +42,18 @@ function fmtDecimalStr(value) {
   return m[1].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (m[2] || '');
 }
 
-/* проценты с 1 десятичным знаком (CR) */
+/* percents with 1 decimal (CR) */
 function fmtPct1(value) {
   return num0(value).toFixed(1) + '%';
 }
 
-/* доля оффера: целые без знаков, дробные с 1 знаком */
+/* offer share: integers plain, fractions with 1 decimal */
 function fmtSharePct(value) {
   const n = num0(value);
   return (Number.isInteger(n) ? String(n) : n.toFixed(1)) + '%';
 }
 
-/* ISO-время из журнала операций → локальное время */
+/* ISO time from operations log -> local time */
 function fmtDateTimeLocal(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -61,7 +62,7 @@ function fmtDateTimeLocal(iso) {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-/* подсветка подстроки поиска */
+/* highlight the search substring */
 function highlight(text, query) {
   const safe = esc(text);
   const q = String(query || '').trim();
@@ -71,7 +72,7 @@ function highlight(text, query) {
   return safe.slice(0, idx) + '<mark>' + safe.slice(idx, idx + q.length) + '</mark>';
 }
 
-/* ---------------- иконки ---------------- */
+/* ---------------- icons ---------------- */
 
 const ICONS = {
   search: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M16.6 16.6 21 21"/></svg>',
@@ -84,13 +85,534 @@ const ICONS = {
   info: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5v.3"/></svg>',
   x: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   arrow: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M13 5l7 7-7 7"/></svg>',
+  external: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>',
 };
 
-/* ---------------- состояние ---------------- */
+/* ============================================================
+   I18N DATA BLOCK — all user-facing strings live here (RU + UZ).
+   Country display names below (COUNTRIES) are part of this block.
+   ============================================================ */
+
+const I18N = {
+  ru: {
+    'app.title': 'Adrobot — управление кампаниями Keitaro',
+
+    'health.checking': 'Проверка подключения…',
+    'health.ok': 'Keitaro: подключено',
+    'health.unreachable': 'Keitaro: недоступен',
+    'health.unconfigured': 'Keitaro: ключ не задан',
+    'health.unknown': 'Keitaro: {value}',
+    'health.api_down': 'API недоступен',
+    'health.title': 'Adrobot API v{version} · БД: {db}',
+    'health.db_ok': 'ok',
+    'health.db_error': 'ошибка',
+
+    'tab.create': 'Новая кампания',
+    'tab.editor': 'Редактор кампаний',
+    'tab.history': 'История операций',
+    'aria.tabs': 'Разделы',
+
+    'page.create.sub': 'Создание кампании в Keitaro: поток гео-редиректа и поток офферов',
+    'page.editor.sub': 'Потоки, фильтры и распределение офферов выбранной кампании',
+    'page.history.sub': 'Последние 50 операций Adrobot с API Keitaro',
+
+    'form.name.label': 'Название кампании',
+    'form.geo.label': 'Гео (страна)',
+    'form.offer.label': 'Оффер Keitaro',
+    'form.name.ph': 'Загрузка конфигурации…',
+    'form.name.ph.unavailable': 'Конфигурация недоступна',
+    'form.geo.ph': 'UZ',
+    'form.offer.ph': 'Начните вводить название оффера…',
+    'form.geo.hint': 'Выберите страну из списка или введите код из 2 латинских букв',
+    'form.geo.err': 'Гео должно быть ровно 2 латинскими буквами (например, UZ)',
+    'form.geo.unknown': 'Код «{code}» не найден в списке стран — будет отправлен как есть',
+    'form.offer.hint': 'Оффер будет назначен на второй поток кампании',
+    'form.offer.hint.ok': 'Оффер выбран — можно создавать кампанию',
+    'form.offer.required': 'Выберите оффер из списка — он нужен для второго потока',
+    'form.name.hint.prefix': 'Название должно начинаться с префикса «{prefix}»',
+    'form.name.hint.ok': 'Соответствует префиксу «{prefix}»',
+    'form.name.hint.loading': 'Конфигурация загружается…',
+    'form.name.hint.disabled': 'Создание кампаний недоступно — не загружена конфигурация',
+    'form.invalid': 'Проверьте поля формы — есть ошибки',
+    'form.submit': 'Создать кампанию',
+    'aria.geo_list': 'Список стран',
+    'aria.offer_list': 'Список офферов',
+    'aria.campaign_list': 'Список кампаний',
+
+    'success.title': 'Кампания создана',
+    'success.sub': 'Кампания и два потока успешно созданы в Keitaro',
+    'btn.goto_editor': 'Перейти в редактор',
+    'btn.create_another': 'Создать ещё',
+    'toast.campaign_created': 'Кампания создана',
+
+    'chip.domain': 'домен',
+    'chip.group': 'группа',
+    'chip.source': 'источник',
+    'chip.updated': 'обновлено',
+    'schema.redirect': 'редирект',
+    'schema.offers': 'офферы',
+    'stream.fallback': 'Поток {n}',
+    'btn.copy': 'Копировать',
+    'btn.copied': 'Скопировано',
+    'btn.keitaro': 'Keitaro',
+
+    'cb.not_found': 'Ничего не найдено',
+    'cb.loading': 'Загрузка…',
+    'cb.search_error': 'Ошибка поиска',
+    'cb.geo_empty': 'Страна не найдена — введите код вручную (например, UZ)',
+    'cb.offers_empty': 'Офферы не найдены — уточните запрос',
+    'cb.offers_loading': 'Поиск офферов…',
+    'cb.campaigns_empty': 'Кампании не найдены — измените запрос или включите «показать все»',
+    'cb.campaigns_loading': 'Поиск кампаний…',
+
+    'editor.picker.ph': 'Найти кампанию по названию или ID…',
+    'editor.show_all': 'показать все',
+    'editor.empty.title': 'Выберите кампанию',
+    'editor.empty.hint': 'Найдите кампанию по названию или ID в поиске выше',
+    'editor.streams_empty.title': 'Потоки не найдены',
+    'editor.streams_empty.hint': 'У выбранной кампании нет потоков',
+    'editor.load_error': 'Не удалось загрузить данные',
+    'btn.retry': 'Повторить',
+    'toast.campaign_not_found': 'Кампания #{id} не найдена',
+    'state.active': 'активна',
+    'state.disabled': 'отключена',
+    'stat.clicks': 'Клики',
+    'stat.unique': 'Уники',
+    'stat.conversions': 'Конверсии',
+    'stat.cr': 'CR',
+    'streams.title': 'Потоки',
+    'stream.position': 'Поток {n}',
+    'stream.action': 'Действие:',
+
+    'th.offer': 'Оффер',
+    'th.share': 'Доля',
+    'th.clicks': 'Клики',
+    'th.unique': 'Уники',
+    'th.conversions': 'Конверсии',
+    'th.cr': 'CR',
+    'th.actions': 'Действия',
+    'offer.offers_empty': 'В потоке пока нет офферов',
+    'offer.delete_last': 'Нельзя удалить последний оффер',
+    'offer.delete': 'Удалить оффер',
+    'offer.add.ph': 'Найти оффер по названию или ID…',
+    'btn.add_offer': 'Добавить оффер',
+    'toast.offer_added': 'Оффер добавлен — доли пересчитаны',
+    'toast.offer_removed': 'Оффер удалён',
+    'toast.select_offer': 'Сначала выберите оффер из списка',
+    'modal.delete_offer.title': 'Удалить оффер?',
+    'modal.delete_offer.body': 'Оффер <strong>{name}</strong> будет удалён из потока. Доли оставшихся офферов будут пересчитаны.',
+    'modal.confirm': 'Удалить',
+    'modal.cancel': 'Отмена',
+    'modal.close': 'Закрыть',
+    'toast.close': 'Закрыть уведомление',
+    'btn.refresh': 'Обновить',
+    'btn.refresh_picker': 'Обновить список кампаний',
+    'btn.copy_id': 'Копировать ID оффера',
+    'toast.copied': 'Скопировано в буфер обмена',
+    'toast.nothing_to_copy': 'Нечего копировать',
+    'toast.copy_failed': 'Не удалось скопировать ссылку',
+    'offer.selected_chip': 'Оффер #{id}',
+    'offer.clear': 'Сбросить выбранный оффер',
+
+    'history.auto_on': 'Автообновление: вкл',
+    'history.auto_off': 'Автообновление: выкл',
+    'history.refresh': 'Обновить',
+    'history.th.time': 'Время',
+    'history.th.action': 'Действие',
+    'history.th.campaign': 'Кампания',
+    'history.th.status': 'Статус',
+    'action.create': 'создание',
+    'action.add': 'добавление оффера',
+    'action.remove': 'удаление оффера',
+    'status.error': 'Ошибка',
+    'status.error_unknown': 'Неизвестная ошибка',
+    'history.empty.title': 'Операций пока нет',
+    'history.empty.hint': 'Создайте кампанию или измените офферы потока — операции появятся здесь',
+
+    'meta.banner': 'Не удалось загрузить конфигурацию сервера: {message}. Создание кампаний временно недоступно.',
+    'footer.keitaro': 'Keitaro:',
+    'footer.prefix': 'Префикс:',
+    'footer.domain': 'Домен:',
+    'footer.report': 'Отчёт:',
+
+    'lang.switch': 'Язык интерфейса',
+
+    'err.validation': 'Ошибка валидации данных',
+    'err.not_found': 'Объект не найден',
+    'err.conflict': 'Конфликт состояния данных',
+    'err.keitaro_unavailable': 'Keitaro недоступен',
+    'err.keitaro_error': 'Ошибка Keitaro',
+    'err.keitaro_ambiguous': 'Результат операции неоднозначен — сверьтесь с админ-панелью Keitaro',
+    'err.internal': 'Внутренняя ошибка сервера',
+    'err.network': 'Нет связи с сервером. Проверьте, что API Adrobot запущен.',
+    'err.http': 'Ошибка сервера (HTTP {status})',
+  },
+
+  uz: {
+    'app.title': 'Adrobot — Keitaro kampaniyalarini boshqarish',
+
+    'health.checking': 'Ulanish tekshirilmoqda…',
+    'health.ok': 'Keitaro: ulangan',
+    'health.unreachable': 'Keitaro: mavjud emas',
+    'health.unconfigured': 'Keitaro: kalit berilmagan',
+    'health.unknown': 'Keitaro: {value}',
+    'health.api_down': 'API mavjud emas',
+    'health.title': 'Adrobot API v{version} · BD: {db}',
+    'health.db_ok': 'ok',
+    'health.db_error': 'xato',
+
+    'tab.create': 'Yangi kampaniya',
+    'tab.editor': 'Kampaniyalar muharriri',
+    'tab.history': 'Amallar tarixi',
+    'aria.tabs': 'Boʻlimlar',
+
+    'page.create.sub': 'Keitaroda kampaniya yaratish: geo-redirekt oqimi va oferlar oqimi',
+    'page.editor.sub': 'Tanlangan kampaniyaning oqimlari, filtrlari va oferlar taqsimoti',
+    'page.history.sub': 'Adrobotning Keitaro API bilan oxirgi 50 ta amali',
+
+    'form.name.label': 'Kampaniya nomi',
+    'form.geo.label': 'Geo (mamlakat)',
+    'form.offer.label': 'Keitaro oferi',
+    'form.name.ph': 'Konfiguratsiya yuklanmoqda…',
+    'form.name.ph.unavailable': 'Konfiguratsiya mavjud emas',
+    'form.geo.ph': 'UZ',
+    'form.offer.ph': 'Ofer nomini kirita boshlang…',
+    'form.geo.hint': 'Roʻyxatdan mamlakatni tanlang yoki 2 lotin harfdan iborat kod kiriting',
+    'form.geo.err': 'Geo aynan 2 lotin harfdan iborat boʻlishi kerak (masalan, UZ)',
+    'form.geo.unknown': '«{code}» kodi mamlakatlar roʻyxatida topilmadi — shundayligicha yuboriladi',
+    'form.offer.hint': 'Ofer kampaniyaning ikkinchi oqimiga biriktiriladi',
+    'form.offer.hint.ok': 'Ofer tanlandi — kampaniyani yaratish mumkin',
+    'form.offer.required': 'Roʻyxatdan oferni tanlang — u ikkinchi oqim uchun kerak',
+    'form.name.hint.prefix': 'Nomi «{prefix}» prefiksi bilan boshlanishi kerak',
+    'form.name.hint.ok': '«{prefix}» prefiksiga mos keladi',
+    'form.name.hint.loading': 'Konfiguratsiya yuklanmoqda…',
+    'form.name.hint.disabled': 'Kampaniya yaratish mavjud emas — konfiguratsiya yuklanmadi',
+    'form.invalid': 'Formani tekshiring — xatolar bor',
+    'form.submit': 'Kampaniyani yaratish',
+    'aria.geo_list': 'Mamlakatlar roʻyxati',
+    'aria.offer_list': 'Oferlar roʻyxati',
+    'aria.campaign_list': 'Kampaniyalar roʻyxati',
+
+    'success.title': 'Kampaniya yaratildi',
+    'success.sub': 'Kampaniya va ikkita oqim Keitaroda muvaffaqiyatli yaratildi',
+    'btn.goto_editor': 'Muharrirga oʻtish',
+    'btn.create_another': 'Yana yaratish',
+    'toast.campaign_created': 'Kampaniya yaratildi',
+
+    'chip.domain': 'domen',
+    'chip.group': 'guruh',
+    'chip.source': 'manba',
+    'chip.updated': 'yangilangan',
+    'schema.redirect': 'redirekt',
+    'schema.offers': 'oferlar',
+    'stream.fallback': 'Oqim {n}',
+    'btn.copy': 'Nusxalash',
+    'btn.copied': 'Nusxalandi',
+    'btn.keitaro': 'Keitaro',
+
+    'cb.not_found': 'Hech narsa topilmadi',
+    'cb.loading': 'Yuklanmoqda…',
+    'cb.search_error': 'Qidiruvda xato',
+    'cb.geo_empty': 'Mamlakat topilmadi — kodni qoʻlda kiriting (masalan, UZ)',
+    'cb.offers_empty': 'Oferlar topilmadi — soʻrovni aniqlashtiring',
+    'cb.offers_loading': 'Oferlar qidirilmoqda…',
+    'cb.campaigns_empty': 'Kampaniyalar topilmadi — soʻrovni oʻzgartiring yoki «barchasini koʻrsatish»ni yoqing',
+    'cb.campaigns_loading': 'Kampaniyalar qidirilmoqda…',
+
+    'editor.picker.ph': 'Kampaniyani nomi yoki ID boʻyicha toping…',
+    'editor.show_all': 'barchasini koʻrsatish',
+    'editor.empty.title': 'Kampaniyani tanlang',
+    'editor.empty.hint': 'Yuqoridagi qidiruv orqali kampaniyani nomi yoki ID boʻyicha toping',
+    'editor.streams_empty.title': 'Oqimlar topilmadi',
+    'editor.streams_empty.hint': 'Tanlangan kampaniyada oqimlar yoʻq',
+    'editor.load_error': 'Maʼlumotlarni yuklab boʻlmadi',
+    'btn.retry': 'Qayta urinish',
+    'toast.campaign_not_found': 'Kampaniya #{id} topilmadi',
+    'state.active': 'faol',
+    'state.disabled': 'oʻchirilgan',
+    'stat.clicks': 'Kliklar',
+    'stat.unique': 'Unikallar',
+    'stat.conversions': 'Konversiyalar',
+    'stat.cr': 'CR',
+    'streams.title': 'Oqimlar',
+    'stream.position': 'Oqim {n}',
+    'stream.action': 'Amal:',
+
+    'th.offer': 'Ofer',
+    'th.share': 'Ulush',
+    'th.clicks': 'Kliklar',
+    'th.unique': 'Unikallar',
+    'th.conversions': 'Konversiyalar',
+    'th.cr': 'CR',
+    'th.actions': 'Amallar',
+    'offer.offers_empty': 'Oqimda hali oferlar yoʻq',
+    'offer.delete_last': 'Oxirgi oferni oʻchirib boʻlmaydi',
+    'offer.delete': 'Oferni oʻchirish',
+    'offer.add.ph': 'Oferni nomi yoki ID boʻyicha toping…',
+    'btn.add_offer': 'Ofer qoʻshish',
+    'toast.offer_added': 'Ofer qoʻshildi — ulushlar qayta hisoblandi',
+    'toast.offer_removed': 'Ofer oʻchirildi',
+    'toast.select_offer': 'Avval roʻyxatdan oferni tanlang',
+    'modal.delete_offer.title': 'Ofer oʻchirilsinmi?',
+    'modal.delete_offer.body': '<strong>{name}</strong> oferi oqimdan oʻchiriladi. Qolgan oferlarning ulushlari qayta hisoblanadi.',
+    'modal.confirm': 'Oʻchirish',
+    'modal.cancel': 'Bekor qilish',
+    'modal.close': 'Yopish',
+    'toast.close': 'Bildirishnomani yopish',
+    'btn.refresh': 'Yangilash',
+    'btn.refresh_picker': 'Kampaniyalar roʻyxatini yangilash',
+    'btn.copy_id': 'Ofer ID sini nusxalash',
+    'toast.copied': 'Buferga nusxalandi',
+    'toast.nothing_to_copy': 'Nusxalash uchun hech narsa yoʻq',
+    'toast.copy_failed': 'Havolani nusxalab boʻlmadi',
+    'offer.selected_chip': 'Ofer #{id}',
+    'offer.clear': 'Tanlangan oferni bekor qilish',
+
+    'history.auto_on': 'Avtoyangilash: yoqilgan',
+    'history.auto_off': 'Avtoyangilash: oʻchirilgan',
+    'history.refresh': 'Yangilash',
+    'history.th.time': 'Vaqt',
+    'history.th.action': 'Amal',
+    'history.th.campaign': 'Kampaniya',
+    'history.th.status': 'Holat',
+    'action.create': 'yaratish',
+    'action.add': 'ofer qoʻshish',
+    'action.remove': 'oferni oʻchirish',
+    'status.error': 'Xato',
+    'status.error_unknown': 'Nomaʼlum xato',
+    'history.empty.title': 'Hozircha amallar yoʻq',
+    'history.empty.hint': 'Kampaniya yarating yoki oqim oferlarini oʻzgartiring — amallar shu yerda paydo boʻladi',
+
+    'meta.banner': 'Server konfiguratsiyasini yuklab boʻlmadi: {message}. Kampaniya yaratish vaqtincha mavjud emas.',
+    'footer.keitaro': 'Keitaro:',
+    'footer.prefix': 'Prefiks:',
+    'footer.domain': 'Domen:',
+    'footer.report': 'Hisobot:',
+
+    'lang.switch': 'Interfeys tili',
+
+    'err.validation': 'Maʼlumotlarni tekshirishda xato',
+    'err.not_found': 'Obʼyekt topilmadi',
+    'err.conflict': 'Maʼlumotlar holatida ziddiyat',
+    'err.keitaro_unavailable': 'Keitaro mavjud emas',
+    'err.keitaro_error': 'Keitaro xatosi',
+    'err.keitaro_ambiguous': 'Amal natijasi noaniq — Keitaro admin paneli bilan solishtiring',
+    'err.internal': 'Serverning ichki xatosi',
+    'err.network': 'Server bilan aloqa yoʻq. Adrobot API ishga tushganini tekshiring.',
+    'err.http': 'Server xatosi (HTTP {status})',
+  },
+};
+
+/* Country data (part of the i18n block): [code, name_ru, name_uz, name_en] */
+const COUNTRIES = [
+  ['US', 'Соединённые Штаты', 'Qoʻshma Shtatlar', 'United States'],
+  ['GB', 'Великобритания', 'Buyuk Britaniya', 'United Kingdom'],
+  ['DE', 'Германия', 'Germaniya', 'Germany'],
+  ['FR', 'Франция', 'Fransiya', 'France'],
+  ['ES', 'Испания', 'Ispaniya', 'Spain'],
+  ['IT', 'Италия', 'Italiya', 'Italy'],
+  ['RU', 'Россия', 'Rossiya', 'Russia'],
+  ['UA', 'Украина', 'Ukraina', 'Ukraine'],
+  ['KZ', 'Казахстан', 'Qozogʻiston', 'Kazakhstan'],
+  ['UZ', 'Узбекистан', 'Oʻzbekiston', 'Uzbekistan'],
+  ['TR', 'Турция', 'Turkiya', 'Turkey'],
+  ['PL', 'Польша', 'Polsha', 'Poland'],
+  ['NL', 'Нидерланды', 'Niderlandiya', 'Netherlands'],
+  ['SE', 'Швеция', 'Shvetsiya', 'Sweden'],
+  ['NO', 'Норвегия', 'Norvegiya', 'Norway'],
+  ['FI', 'Финляндия', 'Finlandiya', 'Finland'],
+  ['DK', 'Дания', 'Daniya', 'Denmark'],
+  ['AT', 'Австрия', 'Avstriya', 'Austria'],
+  ['CH', 'Швейцария', 'Shveytsariya', 'Switzerland'],
+  ['CZ', 'Чехия', 'Chexiya', 'Czechia'],
+  ['SK', 'Словакия', 'Slovakiya', 'Slovakia'],
+  ['HU', 'Венгрия', 'Vengriya', 'Hungary'],
+  ['RO', 'Румыния', 'Ruminiya', 'Romania'],
+  ['BG', 'Болгария', 'Bolgariya', 'Bulgaria'],
+  ['GR', 'Греция', 'Gretsiya', 'Greece'],
+  ['PT', 'Португалия', 'Portugaliya', 'Portugal'],
+  ['IE', 'Ирландия', 'Irlandiya', 'Ireland'],
+  ['BE', 'Бельгия', 'Belgiya', 'Belgium'],
+  ['LU', 'Люксембург', 'Lyuksemburg', 'Luxembourg'],
+  ['CN', 'Китай', 'Xitoy', 'China'],
+  ['JP', 'Япония', 'Yaponiya', 'Japan'],
+  ['KR', 'Южная Корея', 'Janubiy Koreya', 'South Korea'],
+  ['IN', 'Индия', 'Hindiston', 'India'],
+  ['ID', 'Индонезия', 'Indoneziya', 'Indonesia'],
+  ['TH', 'Таиланд', 'Tailand', 'Thailand'],
+  ['VN', 'Вьетнам', 'Vetnam', 'Vietnam'],
+  ['MY', 'Малайзия', 'Malayziya', 'Malaysia'],
+  ['SG', 'Сингапур', 'Singapur', 'Singapore'],
+  ['PH', 'Филиппины', 'Filippin', 'Philippines'],
+  ['AU', 'Австралия', 'Avstraliya', 'Australia'],
+  ['NZ', 'Новая Зеландия', 'Yangi Zelandiya', 'New Zealand'],
+  ['CA', 'Канада', 'Kanada', 'Canada'],
+  ['MX', 'Мексика', 'Meksika', 'Mexico'],
+  ['BR', 'Бразилия', 'Braziliya', 'Brazil'],
+  ['AR', 'Аргентина', 'Argentina', 'Argentina'],
+  ['CL', 'Чили', 'Chili', 'Chile'],
+  ['CO', 'Колумбия', 'Kolumbiya', 'Colombia'],
+  ['PE', 'Перу', 'Peru', 'Peru'],
+  ['EC', 'Эквадор', 'Ekvador', 'Ecuador'],
+  ['EG', 'Египет', 'Misr', 'Egypt'],
+  ['ZA', 'ЮАР', 'JAR', 'South Africa'],
+  ['NG', 'Нигерия', 'Nigeriya', 'Nigeria'],
+  ['KE', 'Кения', 'Keniya', 'Kenya'],
+  ['MA', 'Марокко', 'Marokash', 'Morocco'],
+  ['AE', 'ОАЭ', 'BAA', 'United Arab Emirates'],
+  ['SA', 'Саудовская Аравия', 'Saudiya Arabistoni', 'Saudi Arabia'],
+  ['QA', 'Катар', 'Qatar', 'Qatar'],
+  ['KW', 'Кувейт', 'Quvayt', 'Kuwait'],
+  ['IL', 'Израиль', 'Isroil', 'Israel'],
+  ['GE', 'Грузия', 'Gruziya', 'Georgia'],
+  ['AM', 'Армения', 'Armaniston', 'Armenia'],
+  ['AZ', 'Азербайджан', 'Ozarbayjon', 'Azerbaijan'],
+  ['BY', 'Беларусь', 'Belarus', 'Belarus'],
+  ['MD', 'Молдова', 'Moldova', 'Moldova'],
+  ['LT', 'Литва', 'Litva', 'Lithuania'],
+  ['LV', 'Латвия', 'Latviya', 'Latvia'],
+  ['EE', 'Эстония', 'Estoniya', 'Estonia'],
+  ['KG', 'Киргизия', 'Qirgʻiziston', 'Kyrgyzstan'],
+  ['TJ', 'Таджикистан', 'Tojikiston', 'Tajikistan'],
+  ['TM', 'Туркменистан', 'Turkmaniston', 'Turkmenistan'],
+  ['MN', 'Монголия', 'Mongoliya', 'Mongolia'],
+  ['RS', 'Сербия', 'Serbiya', 'Serbia'],
+  ['HR', 'Хорватия', 'Xorvatiya', 'Croatia'],
+  ['SI', 'Словения', 'Sloveniya', 'Slovenia'],
+  ['BA', 'Босния и Герцеговина', 'Bosniya va Gertsegovina', 'Bosnia and Herzegovina'],
+  ['ME', 'Черногория', 'Chernogoriya', 'Montenegro'],
+  ['MK', 'Северная Македония', 'Shimoliy Makedoniya', 'North Macedonia'],
+  ['AL', 'Албания', 'Albaniya', 'Albania'],
+  ['CY', 'Кипр', 'Kipr', 'Cyprus'],
+  ['MT', 'Мальта', 'Malta', 'Malta'],
+  ['IS', 'Исландия', 'Islandiya', 'Iceland'],
+  ['PK', 'Пакистан', 'Pokiston', 'Pakistan'],
+  ['BD', 'Бангладеш', 'Bangladesh', 'Bangladesh'],
+  ['LK', 'Шри-Ланка', 'Shri-Lanka', 'Sri Lanka'],
+  ['NP', 'Непал', 'Nepal', 'Nepal'],
+  ['KH', 'Камбоджа', 'Kambodja', 'Cambodia'],
+  ['LA', 'Лаос', 'Laos', 'Laos'],
+  ['MM', 'Мьянма', 'Myanma', 'Myanmar'],
+  ['TW', 'Тайвань', 'Tayvan', 'Taiwan'],
+  ['HK', 'Гонконг', 'Gonkong', 'Hong Kong'],
+  ['UY', 'Уругвай', 'Urugvay', 'Uruguay'],
+  ['VE', 'Венесуэла', 'Venesuela', 'Venezuela'],
+  ['GT', 'Гватемала', 'Gvatemala', 'Guatemala'],
+  ['CR', 'Коста-Рика', 'Kosta-Rika', 'Costa Rica'],
+  ['PA', 'Панама', 'Panama', 'Panama'],
+  ['DO', 'Доминикана', 'Dominikana', 'Dominican Republic'],
+  ['CU', 'Куба', 'Kuba', 'Cuba'],
+  ['TN', 'Тунис', 'Tunis', 'Tunisia'],
+  ['DZ', 'Алжир', 'Jazoir', 'Algeria'],
+  ['GH', 'Гана', 'Gana', 'Ghana'],
+  ['ET', 'Эфиопия', 'Efiopiya', 'Ethiopia'],
+  ['TZ', 'Танзания', 'Tanzaniya', 'Tanzania'],
+  ['IR', 'Иран', 'Eron', 'Iran'],
+  ['IQ', 'Ирак', 'Iroq', 'Iraq'],
+  ['JO', 'Иордания', 'Iordaniya', 'Jordan'],
+  ['LB', 'Ливан', 'Livan', 'Lebanon'],
+  ['OM', 'Оман', 'Ummon', 'Oman'],
+  ['BH', 'Бахрейн', 'Bahrayn', 'Bahrain'],
+];
+
+const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c[0], c]));
+
+function flagOf(code) {
+  return String.fromCodePoint(...[...code].map((ch) => 0x1F1E6 + ch.charCodeAt(0) - 65));
+}
+
+function countryName(country) {
+  return country[currentLang === 'uz' ? 2 : 1];
+}
+
+/* ---------------- i18n helpers ---------------- */
+
+function detectLang() {
+  try {
+    const saved = localStorage.getItem('adrobot.lang');
+    if (saved === 'ru' || saved === 'uz') return saved;
+  } catch (err) { /* storage unavailable */ }
+  try {
+    if (String(navigator.language || '').toLowerCase().startsWith('uz')) return 'uz';
+  } catch (err) { /* no navigator */ }
+  return 'ru';
+}
+
+let currentLang = detectLang();
+
+function t(key, params) {
+  let str = (I18N[currentLang] && I18N[currentLang][key])
+    ? I18N[currentLang][key]
+    : (I18N.ru[key] || key);
+  if (params) {
+    for (const k of Object.keys(params)) {
+      str = str.split(`{${k}}`).join(String(params[k] ?? ''));
+    }
+  }
+  return str;
+}
+
+function setLanguage(lang) {
+  if (lang !== 'ru' && lang !== 'uz') return;
+  currentLang = lang;
+  try { localStorage.setItem('adrobot.lang', lang); } catch (err) { /* storage unavailable */ }
+  applyLanguage();
+}
+
+function renderLangSwitch() {
+  $$('.lang-btn').forEach((btn) => {
+    const active = btn.dataset.lang === currentLang;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function applyLanguage() {
+  document.documentElement.lang = currentLang;
+  document.title = t('app.title');
+
+  $$('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  $$('[data-i18n-ph]').forEach((el) => { el.setAttribute('placeholder', t(el.dataset.i18nPh)); });
+  $$('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+  $$('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+
+  renderLangSwitch();
+  renderHealthBadge();
+  renderAutoRefreshBtn();
+
+  /* creator tab */
+  if (meta) {
+    applyMeta();
+    updateGeoHint();
+    updateOfferHint(lastSelectedOffer ? 'ok' : '');
+  } else {
+    setCreatorEnabled(false);
+    updateGeoHint();
+    updateOfferHint('');
+  }
+  renderOfferSelected(lastSelectedOffer);
+  if (lastCreateResult && !createSuccessEl.hidden) {
+    renderCreateSuccess(lastCreateResult.campaign, lastCreateResult.streams, lastCreateResult.geo);
+  }
+
+  /* editor tab */
+  renderEditor();
+
+  /* history tab */
+  if (historyLoaded) renderHistory(lastHistoryItems);
+}
+
+/* ---------------- state ---------------- */
 
 let meta = null;
+let metaAttempted = false;
 let creating = false;
 let currentTab = 'create';
+let lastHealth = null;
+let lastSelectedOffer = null;
+let lastCreateResult = null;
+let historyLoaded = false;
+let lastHistoryItems = [];
 
 /* ---------------- API ---------------- */
 
@@ -104,6 +626,16 @@ class ApiError extends Error {
   }
 }
 
+const ERR_KEYS = {
+  validation: 'err.validation',
+  not_found: 'err.not_found',
+  conflict: 'err.conflict',
+  keitaro_unavailable: 'err.keitaro_unavailable',
+  keitaro_error: 'err.keitaro_error',
+  keitaro_ambiguous: 'err.keitaro_ambiguous',
+  internal: 'err.internal',
+};
+
 async function api(path, { method = 'GET', body } = {}) {
   const options = { method, headers: { Accept: 'application/json' } };
   if (body !== undefined) {
@@ -114,25 +646,24 @@ async function api(path, { method = 'GET', body } = {}) {
   try {
     response = await fetch(path, options);
   } catch (cause) {
-    throw new ApiError('network', 'Нет связи с сервером. Проверьте, что API Adrobot запущен.', 0, cause);
+    throw new ApiError('network', t('err.network'), 0, cause);
   }
   let data = null;
   try {
     data = await response.json();
-  } catch (err) { /* тело не JSON */ }
+  } catch (err) { /* body is not JSON */ }
   if (!response.ok) {
     const err = data && data.error ? data.error : null;
-    throw new ApiError(
-      err && err.code ? err.code : 'internal',
-      err && err.message ? err.message : `Ошибка сервера (HTTP ${response.status})`,
-      response.status,
-      data,
-    );
+    const code = err && err.code ? err.code : 'internal';
+    const message = err && err.message
+      ? err.message
+      : t(ERR_KEYS[code] || 'err.internal');
+    throw new ApiError(code, message, response.status, data);
   }
   return data;
 }
 
-/* ---------------- тосты ---------------- */
+/* ---------------- toasts ---------------- */
 
 const toastRoot = $('#toastRoot');
 const TOAST_ICONS = {
@@ -149,7 +680,7 @@ function toast(message, type = 'info', duration = 5000) {
   el.innerHTML = `
     <span class="toast-icon">${TOAST_ICONS[type] || ICONS.info}</span>
     <span class="toast-text">${esc(message)}</span>
-    <button type="button" class="toast-close" aria-label="Закрыть уведомление">${ICONS.x}</button>`;
+    <button type="button" class="toast-close" aria-label="${esc(t('toast.close'))}">${ICONS.x}</button>`;
   toastRoot.appendChild(el);
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-visible')));
 
@@ -166,11 +697,11 @@ function toast(message, type = 'info', duration = 5000) {
   while (toastRoot.children.length > 5) toastRoot.firstElementChild.remove();
 }
 
-/* ---------------- модальное окно подтверждения ---------------- */
+/* ---------------- confirm modal ---------------- */
 
 const modalRoot = $('#modalRoot');
 
-function confirmModal({ title, message, confirmLabel = 'Удалить', cancelLabel = 'Отмена', danger = true }) {
+function confirmModal({ title, message, confirmLabel = t('modal.confirm'), cancelLabel = t('modal.cancel'), danger = true }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -178,7 +709,7 @@ function confirmModal({ title, message, confirmLabel = 'Удалить', cancelL
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
         <div class="modal-head">
           <h3 id="m-title">${esc(title)}</h3>
-          <button type="button" class="icon-btn modal-x" aria-label="Закрыть">${ICONS.x}</button>
+          <button type="button" class="icon-btn modal-x" aria-label="${esc(t('modal.close'))}">${ICONS.x}</button>
         </div>
         <div class="modal-body">${message}</div>
         <div class="modal-actions">
@@ -220,40 +751,55 @@ function confirmModal({ title, message, confirmLabel = 'Удалить', cancelL
   });
 }
 
-/* ---------------- здоровье API ---------------- */
+/* ---------------- API health ---------------- */
 
 const healthBadge = $('#healthBadge');
 
 async function checkHealth() {
   let state = 'loading';
-  let label = 'Проверка подключения…';
-  let title = 'Adrobot API';
+  let labelKey = 'health.checking';
+  let labelParams = null;
+  let titleKey = null;
+  let titleParams = null;
+  let titleRaw = '';
   try {
     const health = await api('/health');
     const states = {
-      ok: ['ok', 'Keitaro: подключено'],
-      unreachable: ['warn', 'Keitaro: недоступен'],
-      unconfigured: ['off', 'Keitaro: ключ не задан'],
+      ok: ['ok', 'health.ok'],
+      unreachable: ['warn', 'health.unreachable'],
+      unconfigured: ['off', 'health.unconfigured'],
     };
     const mapped = states[health.keitaro];
     if (mapped) {
-      [state, label] = mapped;
-      title = `Adrobot API v${esc(health.version || '?')} · БД: ${health.db === 'ok' ? 'ok' : 'ошибка'}`;
+      [state, labelKey] = mapped;
+      titleKey = 'health.title';
+      titleParams = {
+        version: health.version || '?',
+        db: health.db === 'ok' ? t('health.db_ok') : t('health.db_error'),
+      };
     } else {
       state = 'off';
-      label = `Keitaro: ${esc(health.keitaro || '?')}`;
+      labelKey = 'health.unknown';
+      labelParams = { value: health.keitaro || '?' };
     }
   } catch (err) {
     state = 'down';
-    label = 'API недоступен';
-    title = err.message;
+    labelKey = 'health.api_down';
+    titleRaw = err.message;
   }
-  healthBadge.className = `health health--${state}`;
-  healthBadge.title = title;
-  $('.health-label', healthBadge).textContent = label;
+  lastHealth = { state, labelKey, labelParams, titleKey, titleParams, titleRaw };
+  renderHealthBadge();
 }
 
-/* ---------------- мета-конфигурация ---------------- */
+function renderHealthBadge() {
+  if (!lastHealth) return;
+  const h = lastHealth;
+  healthBadge.className = `health health--${h.state}`;
+  healthBadge.title = h.titleKey ? t(h.titleKey, h.titleParams) : (h.titleRaw || '');
+  $('.health-label', healthBadge).textContent = t(h.labelKey, h.labelParams);
+}
+
+/* ---------------- meta configuration ---------------- */
 
 async function loadMeta() {
   const banner = $('#metaBanner');
@@ -266,11 +812,13 @@ async function loadMeta() {
     banner.hidden = false;
     banner.innerHTML = `
       ${ICONS.alert}
-      <span>Не удалось загрузить конфигурацию сервера: ${esc(err.message)}. Создание кампаний временно недоступно.
-        <button type="button" class="link-btn" id="metaRetry">Повторить</button>
+      <span>${esc(t('meta.banner', { message: err.message }))}
+        <button type="button" class="link-btn" id="metaRetry">${esc(t('btn.retry'))}</button>
       </span>`;
     $('#metaRetry').addEventListener('click', loadMeta);
     setCreatorEnabled(false);
+  } finally {
+    metaAttempted = true;
   }
 }
 
@@ -288,10 +836,10 @@ function renderMetaFooter() {
     return;
   }
   const parts = [];
-  if (meta.keitaro_url) parts.push(`Keitaro: <a href="${esc(meta.keitaro_url)}" target="_blank" rel="noopener">${esc(meta.keitaro_url)}</a>`);
-  if (meta.prefix) parts.push(`Префикс: <code>${esc(meta.prefix)}</code>`);
-  if (meta.domain) parts.push(`Домен: <code>${esc(meta.domain)}</code>`);
-  if (meta.report) parts.push(`Отчёт: <code>${esc(meta.report.interval || '—')}</code> · <code>${esc(meta.report.timezone || '—')}</code>`);
+  if (meta.keitaro_url) parts.push(`${t('footer.keitaro')} <a href="${esc(meta.keitaro_url)}" target="_blank" rel="noopener">${esc(meta.keitaro_url)}</a>`);
+  if (meta.prefix) parts.push(`${t('footer.prefix')} <code>${esc(meta.prefix)}</code>`);
+  if (meta.domain) parts.push(`${t('footer.domain')} <code>${esc(meta.domain)}</code>`);
+  if (meta.report) parts.push(`${t('footer.report')} <code>${esc(meta.report.interval || '—')}</code> · <code>${esc(meta.report.timezone || '—')}</code>`);
   footer.hidden = parts.length === 0;
   footer.innerHTML = parts.join('<span class="footer-sep" aria-hidden="true">•</span>');
 }
@@ -302,12 +850,12 @@ function setCreatorEnabled(enabled) {
   offerInput.disabled = !enabled;
   createBtn.disabled = !enabled || creating;
   if (!enabled) {
-    nameInput.placeholder = 'Конфигурация недоступна';
-    setHint(nameHint, 'Создание кампаний недоступно — не загружена конфигурация', 'error');
+    nameInput.placeholder = t(metaAttempted ? 'form.name.ph.unavailable' : 'form.name.ph');
+    setHint(nameHint, t(metaAttempted ? 'form.name.hint.disabled' : 'form.name.hint.loading'), metaAttempted ? 'error' : '');
   }
 }
 
-/* ---------------- табы ---------------- */
+/* ---------------- tabs ---------------- */
 
 function switchTab(name) {
   currentTab = name;
@@ -324,130 +872,12 @@ function switchTab(name) {
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
-/* ---------------- страны ---------------- */
-
-const COUNTRIES = [
-  ['US', 'Соединённые Штаты', 'United States'],
-  ['GB', 'Великобритания', 'United Kingdom'],
-  ['DE', 'Германия', 'Germany'],
-  ['FR', 'Франция', 'France'],
-  ['ES', 'Испания', 'Spain'],
-  ['IT', 'Италия', 'Italy'],
-  ['RU', 'Россия', 'Russia'],
-  ['UA', 'Украина', 'Ukraine'],
-  ['KZ', 'Казахстан', 'Kazakhstan'],
-  ['UZ', 'Узбекистан', 'Uzbekistan'],
-  ['TR', 'Турция', 'Turkey'],
-  ['PL', 'Польша', 'Poland'],
-  ['NL', 'Нидерланды', 'Netherlands'],
-  ['SE', 'Швеция', 'Sweden'],
-  ['NO', 'Норвегия', 'Norway'],
-  ['FI', 'Финляндия', 'Finland'],
-  ['DK', 'Дания', 'Denmark'],
-  ['AT', 'Австрия', 'Austria'],
-  ['CH', 'Швейцария', 'Switzerland'],
-  ['CZ', 'Чехия', 'Czechia'],
-  ['SK', 'Словакия', 'Slovakia'],
-  ['HU', 'Венгрия', 'Hungary'],
-  ['RO', 'Румыния', 'Romania'],
-  ['BG', 'Болгария', 'Bulgaria'],
-  ['GR', 'Греция', 'Greece'],
-  ['PT', 'Португалия', 'Portugal'],
-  ['IE', 'Ирландия', 'Ireland'],
-  ['BE', 'Бельгия', 'Belgium'],
-  ['LU', 'Люксембург', 'Luxembourg'],
-  ['CN', 'Китай', 'China'],
-  ['JP', 'Япония', 'Japan'],
-  ['KR', 'Южная Корея', 'South Korea'],
-  ['IN', 'Индия', 'India'],
-  ['ID', 'Индонезия', 'Indonesia'],
-  ['TH', 'Таиланд', 'Thailand'],
-  ['VN', 'Вьетнам', 'Vietnam'],
-  ['MY', 'Малайзия', 'Malaysia'],
-  ['SG', 'Сингапур', 'Singapore'],
-  ['PH', 'Филиппины', 'Philippines'],
-  ['AU', 'Австралия', 'Australia'],
-  ['NZ', 'Новая Зеландия', 'New Zealand'],
-  ['CA', 'Канада', 'Canada'],
-  ['MX', 'Мексика', 'Mexico'],
-  ['BR', 'Бразилия', 'Brazil'],
-  ['AR', 'Аргентина', 'Argentina'],
-  ['CL', 'Чили', 'Chile'],
-  ['CO', 'Колумбия', 'Colombia'],
-  ['PE', 'Перу', 'Peru'],
-  ['EC', 'Эквадор', 'Ecuador'],
-  ['EG', 'Египет', 'Egypt'],
-  ['ZA', 'ЮАР', 'South Africa'],
-  ['NG', 'Нигерия', 'Nigeria'],
-  ['KE', 'Кения', 'Kenya'],
-  ['MA', 'Марокко', 'Morocco'],
-  ['AE', 'ОАЭ', 'United Arab Emirates'],
-  ['SA', 'Саудовская Аравия', 'Saudi Arabia'],
-  ['QA', 'Катар', 'Qatar'],
-  ['KW', 'Кувейт', 'Kuwait'],
-  ['IL', 'Израиль', 'Israel'],
-  ['GE', 'Грузия', 'Georgia'],
-  ['AM', 'Армения', 'Armenia'],
-  ['AZ', 'Азербайджан', 'Azerbaijan'],
-  ['BY', 'Беларусь', 'Belarus'],
-  ['MD', 'Молдова', 'Moldova'],
-  ['LT', 'Литва', 'Lithuania'],
-  ['LV', 'Латвия', 'Latvia'],
-  ['EE', 'Эстония', 'Estonia'],
-  ['KG', 'Киргизия', 'Kyrgyzstan'],
-  ['TJ', 'Таджикистан', 'Tajikistan'],
-  ['TM', 'Туркменистан', 'Turkmenistan'],
-  ['MN', 'Монголия', 'Mongolia'],
-  ['RS', 'Сербия', 'Serbia'],
-  ['HR', 'Хорватия', 'Croatia'],
-  ['SI', 'Словения', 'Slovenia'],
-  ['BA', 'Босния и Герцеговина', 'Bosnia and Herzegovina'],
-  ['ME', 'Черногория', 'Montenegro'],
-  ['MK', 'Северная Македония', 'North Macedonia'],
-  ['AL', 'Албания', 'Albania'],
-  ['CY', 'Кипр', 'Cyprus'],
-  ['MT', 'Мальта', 'Malta'],
-  ['IS', 'Исландия', 'Iceland'],
-  ['PK', 'Пакистан', 'Pakistan'],
-  ['BD', 'Бангладеш', 'Bangladesh'],
-  ['LK', 'Шри-Ланка', 'Sri Lanka'],
-  ['NP', 'Непал', 'Nepal'],
-  ['KH', 'Камбоджа', 'Cambodia'],
-  ['LA', 'Лаос', 'Laos'],
-  ['MM', 'Мьянма', 'Myanmar'],
-  ['TW', 'Тайвань', 'Taiwan'],
-  ['HK', 'Гонконг', 'Hong Kong'],
-  ['UY', 'Уругвай', 'Uruguay'],
-  ['VE', 'Венесуэла', 'Venezuela'],
-  ['GT', 'Гватемала', 'Guatemala'],
-  ['CR', 'Коста-Рика', 'Costa Rica'],
-  ['PA', 'Панама', 'Panama'],
-  ['DO', 'Доминикана', 'Dominican Republic'],
-  ['CU', 'Куба', 'Cuba'],
-  ['TN', 'Тунис', 'Tunisia'],
-  ['DZ', 'Алжир', 'Algeria'],
-  ['GH', 'Гана', 'Ghana'],
-  ['ET', 'Эфиопия', 'Ethiopia'],
-  ['TZ', 'Танзания', 'Tanzania'],
-  ['IR', 'Иран', 'Iran'],
-  ['IQ', 'Ирак', 'Iraq'],
-  ['JO', 'Иордания', 'Jordan'],
-  ['LB', 'Ливан', 'Lebanon'],
-  ['OM', 'Оман', 'Oman'],
-  ['BH', 'Бахрейн', 'Bahrain'],
-];
-
-const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c[0], c]));
-
-function flagOf(code) {
-  return String.fromCodePoint(...[...code].map((ch) => 0x1F1E6 + ch.charCodeAt(0) - 65));
-}
-
-/* ---------------- комбобокс ---------------- */
+/* ---------------- combobox ---------------- */
 
 const comboboxRegistry = new Set();
 document.addEventListener('click', (event) => {
   comboboxRegistry.forEach((cb) => {
+    if (event.target.closest('[data-combo-keep]')) return;
     if (!cb.root.contains(event.target)) cb.close();
   });
 });
@@ -463,8 +893,8 @@ class Combobox {
     this.onSelect = options.onSelect || (() => {});
     this.onInput = options.onInput || (() => {});
     this.debounceMs = typeof options.debounceMs === 'number' ? options.debounceMs : 300;
-    this.emptyText = options.emptyText || 'Ничего не найдено';
-    this.loadingText = options.loadingText || 'Загрузка…';
+    this.emptyTextKey = options.emptyTextKey || null;
+    this.loadingTextKey = options.loadingTextKey || null;
 
     this.open = false;
     this.items = [];
@@ -519,7 +949,7 @@ class Combobox {
         this.pending = false;
         this.items = [];
         this.active = -1;
-        this.errorText = err && err.message ? err.message : 'Ошибка поиска';
+        this.errorText = err && err.message ? err.message : t('cb.search_error');
         this.render();
       });
   }
@@ -546,7 +976,7 @@ class Combobox {
     }
     this.list.hidden = false;
     if (this.pending) {
-      this.list.innerHTML = `<div class="cb-status"><span class="spinner" aria-hidden="true"></span>${esc(this.loadingText)}</div>`;
+      this.list.innerHTML = `<div class="cb-status"><span class="spinner" aria-hidden="true"></span>${esc(t(this.loadingTextKey || 'cb.loading'))}</div>`;
       return;
     }
     if (this.errorText) {
@@ -554,7 +984,7 @@ class Combobox {
       return;
     }
     if (this.items.length === 0) {
-      this.list.innerHTML = `<div class="cb-status cb-status--empty">${esc(this.emptyText)}</div>`;
+      this.list.innerHTML = `<div class="cb-status cb-status--empty">${esc(t(this.emptyTextKey || 'cb.not_found'))}</div>`;
       return;
     }
     this.list.innerHTML = this.items.map((item, idx) => {
@@ -617,7 +1047,7 @@ class Combobox {
   }
 }
 
-/* ---------------- подсказки полей ---------------- */
+/* ---------------- field hints ---------------- */
 
 function setHint(el, text, state) {
   el.textContent = text;
@@ -629,7 +1059,7 @@ function markInvalid(input, hintEl, message) {
   setHint(hintEl, message, 'error');
 }
 
-/* ---------------- пустые состояния ---------------- */
+/* ---------------- empty / error states ---------------- */
 
 let emptyIllustrationId = 0;
 
@@ -656,17 +1086,17 @@ function emptyState(title, hint) {
     </div>`;
 }
 
-function errorState(message, retryLabel = 'Повторить', retryAttr = '') {
+function errorState(message, retryLabel = t('btn.retry'), retryAttr = '') {
   return `
     <div class="empty-state">
       <span class="empty-error">${ICONS.alert}</span>
-      <h3 class="empty-title">Не удалось загрузить данные</h3>
+      <h3 class="empty-title">${esc(t('editor.load_error'))}</h3>
       <p class="empty-hint">${esc(message)}</p>
       <button type="button" class="btn btn--ghost btn--sm" ${retryAttr}>${esc(retryLabel)}</button>
     </div>`;
 }
 
-/* ---------------- Вкладка 1: создание кампании ---------------- */
+/* ---------------- Tab 1: campaign creator ---------------- */
 
 const nameInput = $('#nameInput');
 const nameHint = $('#nameHint');
@@ -690,44 +1120,45 @@ function updateNameHint() {
   const prefix = campaignPrefix();
   const value = nameInput.value;
   if (!meta) {
-    setHint(nameHint, 'Конфигурация загружается…', '');
+    setHint(nameHint, t(metaAttempted ? 'form.name.hint.disabled' : 'form.name.hint.loading'), metaAttempted ? 'error' : '');
     return;
   }
   if (!value) {
-    setHint(nameHint, `Название должно начинаться с префикса «${prefix}»`, '');
+    setHint(nameHint, t('form.name.hint.prefix', { prefix }), '');
     return;
   }
   if (value.startsWith(prefix)) {
-    setHint(nameHint, `Соответствует префиксу «${prefix}»`, 'ok');
+    setHint(nameHint, t('form.name.hint.ok', { prefix }), 'ok');
   } else {
-    setHint(nameHint, `Название должно начинаться с префикса «${prefix}»`, 'error');
+    setHint(nameHint, t('form.name.hint.prefix', { prefix }), 'error');
   }
 }
 
 function updateGeoHint() {
   const value = geoInput.value;
   if (!value) {
-    setHint(geoHint, 'Выберите страну из списка или введите код из 2 латинских букв', '');
+    setHint(geoHint, t('form.geo.hint'), '');
     return;
   }
   if (!/^[A-Z]{2}$/.test(value)) {
-    setHint(geoHint, 'Гео должно быть ровно 2 латинскими буквами (например, UZ)', 'error');
+    setHint(geoHint, t('form.geo.err'), 'error');
     return;
   }
   const country = COUNTRY_MAP.get(value);
-  if (country) setHint(geoHint, `${flagOf(country[0])} ${country[1]}`, 'ok');
-  else setHint(geoHint, `Код «${value}» не найден в списке стран — будет отправлен как есть`, 'warn');
+  if (country) setHint(geoHint, `${flagOf(country[0])} ${countryName(country)}`, 'ok');
+  else setHint(geoHint, t('form.geo.unknown', { code: value }), 'warn');
 }
 
 function updateOfferHint(state = '') {
   if (state === 'ok') {
-    setHint(offerHint, 'Оффер выбран — можно создавать кампанию', 'ok');
+    setHint(offerHint, t('form.offer.hint.ok'), 'ok');
     return;
   }
-  setHint(offerHint, 'Оффер будет назначен на второй поток кампании', '');
+  setHint(offerHint, t('form.offer.hint'), '');
 }
 
 function renderOfferSelected(offer) {
+  lastSelectedOffer = offer || null;
   if (!offer) {
     offerSelectedEl.hidden = true;
     offerSelectedEl.innerHTML = '';
@@ -735,10 +1166,10 @@ function renderOfferSelected(offer) {
   }
   offerSelectedEl.hidden = false;
   offerSelectedEl.innerHTML = `
-    <span class="chip chip--payout">${ICONS.check} Оффер #${fmtInt(offer.id)}</span>
+    <span class="chip chip--payout">${ICONS.check} ${esc(t('offer.selected_chip', { id: fmtInt(offer.id) }))}</span>
     <span class="chip">${esc(offer.name)}</span>
     <span class="chip chip--mono">${fmtDecimalStr(offer.payout_value)} ${esc(offer.payout_currency || '')}</span>
-    <button type="button" class="icon-btn icon-btn--sm" id="clearOfferBtn" aria-label="Сбросить выбранный оффер" title="Сбросить">${ICONS.x}</button>`;
+    <button type="button" class="icon-btn icon-btn--sm" id="clearOfferBtn" aria-label="${esc(t('offer.clear'))}" title="${esc(t('offer.clear'))}">${ICONS.x}</button>`;
   $('#clearOfferBtn').addEventListener('click', () => {
     offerIdInput.value = '';
     offerInput.value = '';
@@ -758,10 +1189,10 @@ const geoCombo = new Combobox({
     if (!q) return COUNTRIES.slice(0, 40);
     const lower = q.toLowerCase();
     return COUNTRIES
-      .filter(([code, ru, en]) => code.startsWith(q) || ru.toLowerCase().includes(lower) || en.toLowerCase().includes(lower))
+      .filter(([code, ru, uz, en]) => code.startsWith(q) || ru.toLowerCase().includes(lower) || uz.toLowerCase().includes(lower) || en.toLowerCase().includes(lower))
       .slice(0, 40);
   },
-  renderItem: (country) => `<span class="cb-item-flag">${flagOf(country[0])}</span><span class="cb-item-main">${esc(country[0])} — ${esc(country[1])}</span>`,
+  renderItem: (country) => `<span class="cb-item-flag">${flagOf(country[0])}</span><span class="cb-item-main">${esc(country[0])} — ${esc(countryName(country))}</span>`,
   valueOf: (country) => country[0],
   onSelect: () => {
     geoInput.classList.remove('is-invalid');
@@ -773,7 +1204,7 @@ const geoCombo = new Combobox({
     geoInput.classList.remove('is-invalid');
     updateGeoHint();
   },
-  emptyText: 'Страна не найдена — введите код вручную (например, UZ)',
+  emptyTextKey: 'cb.geo_empty',
 });
 
 const offerCombo = new Combobox({
@@ -809,8 +1240,8 @@ const offerCombo = new Combobox({
     offerInput.classList.remove('is-invalid');
     updateOfferHint('');
   },
-  emptyText: 'Офферы не найдены — уточните запрос',
-  loadingText: 'Поиск офферов…',
+  emptyTextKey: 'cb.offers_empty',
+  loadingTextKey: 'cb.offers_loading',
 });
 
 nameInput.addEventListener('input', () => {
@@ -831,17 +1262,18 @@ creatorForm.addEventListener('submit', async (event) => {
 
   const name = nameInput.value.trim();
   const geo = geoInput.value.trim();
-  if (!name.startsWith(campaignPrefix())) {
-    invalid(nameInput, nameHint, `Название должно начинаться с префикса «${campaignPrefix()}»`);
+  const prefix = campaignPrefix();
+  if (!name.startsWith(prefix)) {
+    invalid(nameInput, nameHint, t('form.name.hint.prefix', { prefix }));
   }
   if (!/^[A-Z]{2}$/.test(geo)) {
-    invalid(geoInput, geoHint, 'Гео должно быть ровно 2 латинскими буквами (например, UZ)');
+    invalid(geoInput, geoHint, t('form.geo.err'));
   }
   if (!offerIdInput.value) {
-    invalid(offerInput, offerHint, 'Выберите оффер из списка — он нужен для второго потока');
+    invalid(offerInput, offerHint, t('form.offer.required'));
   }
   if (firstInvalid) {
-    toast('Проверьте поля формы — есть ошибки', 'warning');
+    toast(t('form.invalid'), 'warning');
     firstInvalid.focus();
     return;
   }
@@ -855,7 +1287,7 @@ creatorForm.addEventListener('submit', async (event) => {
       body: { name, geo, offer_id: Number(offerIdInput.value) },
     });
     renderCreateSuccess(result.campaign, result.streams, geo);
-    toast('Кампания создана', 'success');
+    toast(t('toast.campaign_created'), 'success');
   } catch (err) {
     if (err.code === 'validation' || err.code === 'conflict') {
       formErrorEl.hidden = false;
@@ -869,7 +1301,14 @@ creatorForm.addEventListener('submit', async (event) => {
   }
 });
 
+/* Keitaro admin link button (rendered when meta.admin_url is present) */
+function keitaroBtn() {
+  if (!meta || !meta.admin_url) return '';
+  return `<a class="btn btn--ghost btn--sm" href="${esc(meta.admin_url)}" target="_blank" rel="noopener" title="${esc(t('btn.keitaro'))}">${ICONS.external}<span>${esc(t('btn.keitaro'))}</span></a>`;
+}
+
 function renderCreateSuccess(campaign, streams, geo) {
+  lastCreateResult = { campaign, streams, geo };
   creatorFormWrap.hidden = true;
   createSuccessEl.hidden = false;
   const safeUrl = campaign && campaign.url ? campaign.url : '';
@@ -877,8 +1316,8 @@ function renderCreateSuccess(campaign, streams, geo) {
     <div class="success-head">
       <span class="success-icon">${ICONS.check}</span>
       <div>
-        <h2>Кампания создана</h2>
-        <p class="page-sub">Кампания и два потока успешно созданы в Keitaro</p>
+        <h2>${esc(t('success.title'))}</h2>
+        <p class="page-sub">${esc(t('success.sub'))}</p>
       </div>
     </div>
     <div class="card campaign-card">
@@ -888,23 +1327,24 @@ function renderCreateSuccess(campaign, streams, geo) {
           <span class="chip chip--mono">ID ${fmtInt(campaign && campaign.id)}</span>
           <span class="chip chip--mono">alias ${esc(campaign && campaign.alias ? campaign.alias : '—')}</span>
         </div>
+        <div class="cc-actions">${keitaroBtn()}</div>
       </div>
       <div class="cc-meta">
-        <span class="chip chip--accent">домен ${esc(campaign && campaign.domain ? campaign.domain : '—')}</span>
-        <span class="chip chip--accent">группа ${esc(campaign && campaign.group ? campaign.group : '—')}</span>
-        <span class="chip chip--accent">источник ${esc(campaign && campaign.source ? campaign.source : '—')}</span>
+        <span class="chip chip--accent">${esc(t('chip.domain'))} ${esc(campaign && campaign.domain ? campaign.domain : '—')}</span>
+        <span class="chip chip--accent">${esc(t('chip.group'))} ${esc(campaign && campaign.group ? campaign.group : '—')}</span>
+        <span class="chip chip--accent">${esc(t('chip.source'))} ${esc(campaign && campaign.source ? campaign.source : '—')}</span>
       </div>
       <div class="cc-url">
         <span class="cc-url-text">${esc(safeUrl)}</span>
-        <button type="button" class="btn btn--ghost btn--sm" data-copy="${esc(safeUrl)}">${ICONS.copy}<span>Копировать</span></button>
+        <button type="button" class="btn btn--ghost btn--sm" data-copy="${esc(safeUrl)}">${ICONS.copy}<span>${esc(t('btn.copy'))}</span></button>
       </div>
     </div>
     <div class="streams-mini-grid">
       ${(streams || []).map((stream, idx) => renderStreamMini(stream, idx, geo)).join('')}
     </div>
     <div class="form-actions">
-      <button type="button" id="gotoEditorBtn" class="btn btn--primary">${ICONS.arrow}<span>Перейти в редактор</span></button>
-      <button type="button" id="createAnotherBtn" class="btn btn--ghost">Создать ещё</button>
+      <button type="button" id="gotoEditorBtn" class="btn btn--primary">${ICONS.arrow}<span>${esc(t('btn.goto_editor'))}</span></button>
+      <button type="button" id="createAnotherBtn" class="btn btn--ghost">${esc(t('btn.create_another'))}</button>
     </div>`;
   $('#gotoEditorBtn').addEventListener('click', () => gotoEditor(campaign));
   $('#createAnotherBtn').addEventListener('click', resetCreator);
@@ -920,8 +1360,8 @@ function renderStreamMini(stream, idx, geo) {
     <div class="card stream-mini">
       <div class="stream-mini-head">
         <span class="pos-badge">№${fmtInt((stream && stream.position) || idx + 1)}</span>
-        <span class="stream-mini-name">${esc(stream && stream.name ? stream.name : `Поток ${idx + 1}`)}</span>
-        <span class="chip chip--schema">${isOffers ? 'офферы' : 'редирект'}</span>
+        <span class="stream-mini-name">${esc(stream && stream.name ? stream.name : t('stream.fallback', { n: idx + 1 }))}</span>
+        <span class="chip chip--schema">${esc(isOffers ? t('schema.offers') : t('schema.redirect'))}</span>
       </div>
       <div class="stream-mini-body">
         <span class="muted">→</span>
@@ -943,13 +1383,14 @@ function resetCreator() {
   formErrorEl.hidden = true;
   createSuccessEl.hidden = true;
   creatorFormWrap.hidden = false;
+  lastCreateResult = null;
   updateNameHint();
   updateGeoHint();
   updateOfferHint('');
   nameInput.focus();
 }
 
-/* ---------------- Вкладка 2: редактор кампаний ---------------- */
+/* ---------------- Tab 2: campaign editor ---------------- */
 
 const editorState = {
   campaign: null,
@@ -964,11 +1405,13 @@ const editorState = {
 const campaignInput = $('#campaignInput');
 const showAllToggle = $('#showAllToggle');
 const editorContent = $('#editorContent');
+const campaignRefreshBtn = $('#campaignRefreshBtn');
 
-const STATE_LABELS = { active: 'активна', disabled: 'отключена' };
+const STATE_KEYS = { active: 'state.active', disabled: 'state.disabled' };
 
 function stateLabel(state) {
-  return STATE_LABELS[state] || String(state || '—');
+  const key = STATE_KEYS[state];
+  return key ? t(key) : String(state || '—');
 }
 
 const campaignCombo = new Combobox({
@@ -994,12 +1437,18 @@ const campaignCombo = new Combobox({
     </span>`,
   valueOf: (campaign) => campaign.name,
   onSelect: (campaign) => openCampaign(campaign.id, campaign),
-  emptyText: 'Кампании не найдены — измените запрос или включите «показать все»',
-  loadingText: 'Поиск кампаний…',
+  emptyTextKey: 'cb.campaigns_empty',
+  loadingTextKey: 'cb.campaigns_loading',
 });
 
 showAllToggle.addEventListener('change', () => {
   campaignCombo.query();
+});
+
+campaignRefreshBtn.addEventListener('click', () => {
+  campaignRefreshBtn.classList.add('is-spinning');
+  campaignCombo.query();
+  setTimeout(() => campaignRefreshBtn.classList.remove('is-spinning'), 700);
 });
 
 async function openCampaign(id, campaignHint) {
@@ -1019,7 +1468,7 @@ async function openCampaign(id, campaignHint) {
     editorState.campaign = null;
     editorState.streams = null;
     editorState.error = err.message;
-    if (err.code === 'not_found') toast(`Кампания #${fmtInt(id)} не найдена`, 'error');
+    if (err.code === 'not_found') toast(t('toast.campaign_not_found', { id: fmtInt(id) }), 'error');
     else toast(err.message, 'error');
     renderEditor();
   }
@@ -1033,9 +1482,9 @@ function renderEditor() {
   }
   if (!editorState.campaign) {
     if (editorState.error) {
-      root.innerHTML = `<div class="card">${errorState(editorState.error, 'Повторить', 'data-retry-campaign')}</div>`;
+      root.innerHTML = `<div class="card">${errorState(editorState.error, t('btn.retry'), 'data-retry-campaign')}</div>`;
     } else {
-      root.innerHTML = `<div class="card">${emptyState('Выберите кампанию', 'Найдите кампанию по названию или ID в поиске выше')}</div>`;
+      root.innerHTML = `<div class="card">${emptyState(t('editor.empty.title'), t('editor.empty.hint'))}</div>`;
     }
     return;
   }
@@ -1054,27 +1503,28 @@ function renderCampaignHeader(campaign, stats) {
           <h3>${esc(campaign.name || '—')}</h3>
           <span class="chip chip--mono">ID ${fmtInt(campaign.id)}</span>
           <span class="chip chip--mono">alias ${esc(campaign.alias || '—')}</span>
-          <span class="chip chip--state chip--state-${esc(campaign.state || 'disabled')}">${stateLabel(campaign.state)}</span>
+          <span class="chip chip--state chip--state-${esc(campaign.state || 'disabled')}">${esc(stateLabel(campaign.state))}</span>
         </div>
         <div class="cc-actions">
-          <button type="button" class="icon-btn" id="refreshCampaignBtn" aria-label="Обновить данные кампании" title="Обновить">${ICONS.refresh}</button>
+          ${keitaroBtn()}
+          <button type="button" class="icon-btn" id="refreshCampaignBtn" aria-label="${esc(t('btn.refresh'))}" title="${esc(t('btn.refresh'))}">${ICONS.refresh}</button>
         </div>
       </div>
       <div class="cc-meta">
-        <span class="chip">домен ${esc(campaign.domain || '—')}</span>
-        <span class="chip">группа ${esc(campaign.group || '—')}</span>
-        <span class="chip">источник ${esc(campaign.source || '—')}</span>
-        ${campaign.updated_at ? `<span class="chip chip--muted">обновлено ${esc(campaign.updated_at)}</span>` : ''}
+        <span class="chip">${esc(t('chip.domain'))} ${esc(campaign.domain || '—')}</span>
+        <span class="chip">${esc(t('chip.group'))} ${esc(campaign.group || '—')}</span>
+        <span class="chip">${esc(t('chip.source'))} ${esc(campaign.source || '—')}</span>
+        ${campaign.updated_at ? `<span class="chip chip--muted">${esc(t('chip.updated'))} ${esc(campaign.updated_at)}</span>` : ''}
       </div>
       <div class="cc-url">
         <span class="cc-url-text">${esc(url || '—')}</span>
-        <button type="button" class="btn btn--ghost btn--sm" data-copy="${esc(url)}">${ICONS.copy}<span>Копировать</span></button>
+        <button type="button" class="btn btn--ghost btn--sm" data-copy="${esc(url)}">${ICONS.copy}<span>${esc(t('btn.copy'))}</span></button>
       </div>
       <div class="stats-grid">
-        ${statTile('Клики', fmtInt(stats.clicks))}
-        ${statTile('Уники', fmtInt(stats.unique_clicks))}
-        ${statTile('Конверсии', fmtInt(stats.conversions))}
-        ${statTile('CR', fmtPct1(stats.cr), true)}
+        ${statTile(t('stat.clicks'), fmtInt(stats.clicks))}
+        ${statTile(t('stat.unique'), fmtInt(stats.unique_clicks))}
+        ${statTile(t('stat.conversions'), fmtInt(stats.conversions))}
+        ${statTile(t('stat.cr'), fmtPct1(stats.cr), true)}
       </div>
     </div>`;
 }
@@ -1091,11 +1541,11 @@ function renderStreamsSection() {
   const streams = editorState.streams || [];
   if (!streams.length) {
     return `
-      <div class="section-head"><h2>Потоки</h2><span class="chip chip--muted">0</span></div>
-      <div class="card">${emptyState('Потоки не найдены', 'У выбранной кампании нет потоков')}</div>`;
+      <div class="section-head"><h2>${esc(t('streams.title'))}</h2><span class="chip chip--muted">0</span></div>
+      <div class="card">${emptyState(t('editor.streams_empty.title'), t('editor.streams_empty.hint'))}</div>`;
   }
   return `
-    <div class="section-head"><h2>Потоки</h2><span class="chip chip--muted">${streams.length}</span></div>
+    <div class="section-head"><h2>${esc(t('streams.title'))}</h2><span class="chip chip--muted">${streams.length}</span></div>
     <div class="streams-grid">${streams.map((stream, idx) => renderStreamCard(stream, idx)).join('')}</div>`;
 }
 
@@ -1105,10 +1555,10 @@ function renderStreamCard(stream, idx) {
   return `
     <div class="card stream-card">
       <div class="stream-card-head">
-        <span class="pos-badge">Поток ${fmtInt(stream.position || idx + 1)}</span>
-        <span class="stream-name">${esc(stream.name || `Поток ${idx + 1}`)}</span>
-        <span class="chip chip--schema">${isOffers ? 'офферы' : 'редирект'}</span>
-        <span class="chip chip--state chip--state-${esc(stream.state || 'disabled')}">${stateLabel(stream.state)}</span>
+        <span class="pos-badge">${esc(t('stream.position', { n: fmtInt(stream.position || idx + 1) }))}</span>
+        <span class="stream-name">${esc(stream.name || t('stream.fallback', { n: idx + 1 }))}</span>
+        <span class="chip chip--schema">${esc(isOffers ? t('schema.offers') : t('schema.redirect'))}</span>
+        <span class="chip chip--state chip--state-${esc(stream.state || 'disabled')}">${esc(stateLabel(stream.state))}</span>
       </div>
       ${!isOffers && filters.length
         ? `<div class="stream-filters">${filters.map((f) => `<span class="chip chip--filter"><span class="chip-key">${esc(f.name)}</span> = ${esc((f.payload || []).join(', '))}</span>`).join('')}</div>`
@@ -1123,7 +1573,7 @@ function renderRedirectAction(stream) {
   const target = stream.action_payload;
   return `
     <div class="redirect-row">
-      <span class="muted">Действие:</span>
+      <span class="muted">${esc(t('stream.action'))}</span>
       ${target
         ? `<a class="link" href="${esc(target)}" target="_blank" rel="noopener">→ ${esc(target)}</a>`
         : '<span class="muted">—</span>'}
@@ -1142,20 +1592,20 @@ function renderOffersBlock(stream) {
   const offers = stream.offers || [];
   const totalShare = offers.reduce((sum, offer) => sum + num0(offer.share), 0);
   const rows = offers.map((offer, idx) => renderOfferRow(stream, offer, idx, offers.length, totalShare)).join('');
-  const body = rows || '<tr><td colspan="7"><div class="table-empty">В потоке пока нет офферов</div></td></tr>';
+  const body = rows || `<tr><td colspan="7"><div class="table-empty">${esc(t('offer.offers_empty'))}</div></td></tr>`;
   return `
     <div class="offers-block">
       <div class="table-scroll">
         <table class="table offers-table">
           <thead>
             <tr>
-              <th>Оффер</th>
-              <th>Доля</th>
-              <th class="num">Клики</th>
-              <th class="num">Уники</th>
-              <th class="num">Конверсии</th>
-              <th class="num">CR</th>
-              <th class="num" aria-label="Действия"></th>
+              <th>${esc(t('th.offer'))}</th>
+              <th>${esc(t('th.share'))}</th>
+              <th class="num">${esc(t('th.clicks'))}</th>
+              <th class="num">${esc(t('th.unique'))}</th>
+              <th class="num">${esc(t('th.conversions'))}</th>
+              <th class="num">${esc(t('th.cr'))}</th>
+              <th class="num" aria-label="${esc(t('th.actions'))}"></th>
             </tr>
           </thead>
           <tbody>${body}</tbody>
@@ -1169,13 +1619,13 @@ function renderOfferRow(stream, offer, idx, count, totalShare) {
   const share = num0(offer.share);
   const width = totalShare > 0 ? (share / totalShare) * 100 : (count > 0 ? 100 / count : 0);
   const last = count <= 1;
-  const tooltip = last ? 'Нельзя удалить последний оффер' : 'Удалить оффер';
+  const tooltip = last ? t('offer.delete_last') : t('offer.delete');
   return `
     <tr>
       <td>
         <div class="offer-cell">
           <span class="offer-cell-name">${esc(offer.offer_name || '—')}</span>
-          <span class="chip chip--mono chip--sm">#${fmtInt(offer.offer_id)}</span>
+          <button type="button" class="chip chip--mono chip--sm chip--btn" data-copy-id="${esc(String(offer.offer_id))}" aria-label="${esc(t('btn.copy_id'))}" title="${esc(t('btn.copy_id'))}">#${fmtInt(offer.offer_id)}</button>
         </div>
       </td>
       <td>
@@ -1205,13 +1655,13 @@ function renderAddOfferRow(stream) {
   return `
     <div class="add-offer-row">
       <div class="combobox add-offer-combo" data-combo-for="${esc(String(stream.id))}">
-        <input class="input" type="text" autocomplete="off" spellcheck="false" placeholder="Найти оффер по названию или ID…">
+        <input class="input" type="text" autocomplete="off" spellcheck="false" placeholder="${esc(t('offer.add.ph'))}">
         <button type="button" class="cb-caret" tabindex="-1" aria-hidden="true">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="cb-list" role="listbox" hidden></div>
       </div>
-      <button type="button" class="btn btn--primary btn--sm" data-add-offer data-stream="${esc(String(stream.id))}" disabled>${ICONS.plus}<span>Добавить оффер</span></button>
+      <button type="button" class="btn btn--primary btn--sm" data-add-offer data-stream="${esc(String(stream.id))}" disabled>${ICONS.plus}<span>${esc(t('btn.add_offer'))}</span></button>
     </div>`;
 }
 
@@ -1249,8 +1699,8 @@ function initAddOfferCombos() {
         delete input.dataset.offerId;
         setAddBtn(streamId, false);
       },
-      emptyText: 'Офферы не найдены — уточните запрос',
-      loadingText: 'Поиск офферов…',
+      emptyTextKey: 'cb.offers_empty',
+      loadingTextKey: 'cb.offers_loading',
     });
   });
 }
@@ -1310,7 +1760,7 @@ async function handleAddOffer(btn) {
   const input = comboRoot ? $('.input', comboRoot) : null;
   const offerId = input && input.dataset.offerId ? Number(input.dataset.offerId) : 0;
   if (!offerId) {
-    toast('Сначала выберите оффер из списка', 'warning');
+    toast(t('toast.select_offer'), 'warning');
     return;
   }
   btn.disabled = true;
@@ -1320,7 +1770,7 @@ async function handleAddOffer(btn) {
       method: 'POST',
       body: { offer_id: offerId },
     });
-    toast('Оффер добавлен — доли пересчитаны', 'success');
+    toast(t('toast.offer_added'), 'success');
     await refreshStreams();
   } catch (err) {
     toast(err.message, 'error');
@@ -1336,9 +1786,10 @@ async function handleDeleteOffer(btn) {
   const offerId = btn.dataset.offerId;
   const offerName = btn.dataset.offerName || `#${offerId}`;
   const confirmed = await confirmModal({
-    title: 'Удалить оффер?',
-    message: `Оффер <strong>${esc(offerName)}</strong> будет удалён из потока. Доли оставшихся офферов будут пересчитаны.`,
-    confirmLabel: 'Удалить',
+    title: t('modal.delete_offer.title'),
+    message: t('modal.delete_offer.body', { name: esc(offerName) }),
+    confirmLabel: t('modal.confirm'),
+    cancelLabel: t('modal.cancel'),
     danger: true,
   });
   if (!confirmed) return;
@@ -1346,7 +1797,7 @@ async function handleDeleteOffer(btn) {
   btn.classList.add('is-loading');
   try {
     await api(`/api/campaigns/${campaignId}/streams/${streamId}/offers/${offerId}`, { method: 'DELETE' });
-    toast('Оффер удалён', 'success');
+    toast(t('toast.offer_removed'), 'success');
     await refreshStreams();
   } catch (err) {
     toast(err.message, 'error');
@@ -1373,7 +1824,7 @@ function editorSkeleton() {
     </div>`;
 }
 
-/* ---------------- Вкладка 3: история операций ---------------- */
+/* ---------------- Tab 3: operations history ---------------- */
 
 let historyLoading = false;
 let historyAuto = false;
@@ -1384,9 +1835,9 @@ const refreshHistoryBtn = $('#refreshHistoryBtn');
 const autoRefreshBtn = $('#autoRefreshBtn');
 
 const ACTION_BADGES = {
-  create_campaign: { label: 'создание', cls: 'badge--create' },
-  add_offer: { label: 'добавление оффера', cls: 'badge--add' },
-  remove_offer: { label: 'удаление оффера', cls: 'badge--remove' },
+  create_campaign: { labelKey: 'action.create', cls: 'badge--create' },
+  add_offer: { labelKey: 'action.add', cls: 'badge--add' },
+  remove_offer: { labelKey: 'action.remove', cls: 'badge--remove' },
 };
 
 async function loadHistory() {
@@ -1395,9 +1846,11 @@ async function loadHistory() {
   refreshHistoryBtn.classList.add('is-loading');
   try {
     const data = await api('/api/operations?limit=50');
-    renderHistory(data.items || []);
+    historyLoaded = true;
+    lastHistoryItems = data.items || [];
+    renderHistory(lastHistoryItems);
   } catch (err) {
-    historyWrap.innerHTML = errorState(err.message, 'Повторить', 'data-retry-history');
+    historyWrap.innerHTML = errorState(err.message, t('btn.retry'), 'data-retry-history');
     toast(err.message, 'error');
   } finally {
     historyLoading = false;
@@ -1407,14 +1860,14 @@ async function loadHistory() {
 
 function renderHistory(items) {
   if (!items.length) {
-    historyWrap.innerHTML = emptyState('Операций пока нет', 'Создайте кампанию или измените офферы потока — операции появятся здесь');
+    historyWrap.innerHTML = emptyState(t('history.empty.title'), t('history.empty.hint'));
     return;
   }
   historyWrap.innerHTML = `
     <div class="table-scroll">
       <table class="table ops-table">
         <thead>
-          <tr><th>Время</th><th>Действие</th><th>Кампания</th><th>Статус</th></tr>
+          <tr><th>${esc(t('history.th.time'))}</th><th>${esc(t('history.th.action'))}</th><th>${esc(t('history.th.campaign'))}</th><th>${esc(t('history.th.status'))}</th></tr>
         </thead>
         <tbody>${items.map(renderOpRow).join('')}</tbody>
       </table>
@@ -1422,7 +1875,8 @@ function renderHistory(items) {
 }
 
 function renderOpRow(op) {
-  const action = ACTION_BADGES[op.action] || { label: esc(op.action || '—'), cls: '' };
+  const action = ACTION_BADGES[op.action] || { labelKey: null, cls: '' };
+  const actionLabel = action.labelKey ? t(action.labelKey) : esc(op.action || '—');
   const ok = op.status === 'ok';
   const idChip = (op.keitaro_campaign_id !== null && op.keitaro_campaign_id !== undefined)
     ? `<span class="chip chip--mono chip--sm">#${fmtInt(op.keitaro_campaign_id)}</span>`
@@ -1432,11 +1886,11 @@ function renderOpRow(op) {
     : (idChip || '<span class="muted">—</span>');
   const statusCell = ok
     ? `<span class="badge badge--ok">${ICONS.check}<span>OK</span></span>`
-    : `<span class="badge badge--err" data-tooltip="${esc(op.error || 'Неизвестная ошибка')}">${ICONS.alert}<span>Ошибка</span></span>`;
+    : `<span class="badge badge--err" data-tooltip="${esc(op.error || t('status.error_unknown'))}">${ICONS.alert}<span>${esc(t('status.error'))}</span></span>`;
   return `
     <tr>
       <td class="time-cell">${fmtDateTimeLocal(op.created_at)}</td>
-      <td><span class="badge ${action.cls}">${action.label}</span></td>
+      <td><span class="badge ${action.cls}">${actionLabel}</span></td>
       <td>${campaignCell}</td>
       <td>${statusCell}</td>
     </tr>`;
@@ -1444,7 +1898,7 @@ function renderOpRow(op) {
 
 function renderAutoRefreshBtn() {
   autoRefreshBtn.classList.toggle('is-on', historyAuto);
-  autoRefreshBtn.innerHTML = `<span class="auto-dot" aria-hidden="true"></span>Автообновление: ${historyAuto ? 'вкл' : 'выкл'}`;
+  autoRefreshBtn.innerHTML = `<span class="auto-dot" aria-hidden="true"></span>${esc(t(historyAuto ? 'history.auto_on' : 'history.auto_off'))}`;
 }
 
 autoRefreshBtn.addEventListener('click', () => {
@@ -1463,11 +1917,11 @@ autoRefreshBtn.addEventListener('click', () => {
 
 refreshHistoryBtn.addEventListener('click', loadHistory);
 
-/* ---------------- копирование в буфер ---------------- */
+/* ---------------- clipboard ---------------- */
 
 async function copyText(text, btn) {
   if (!text) {
-    toast('Нечего копировать', 'warning');
+    toast(t('toast.nothing_to_copy'), 'warning');
     return;
   }
   let copied = false;
@@ -1490,27 +1944,32 @@ async function copyText(text, btn) {
     } catch (err) { copied = false; }
   }
   if (copied) {
-    toast('Скопировано в буфер обмена', 'success');
+    toast(t('toast.copied'), 'success');
     if (btn) {
       const original = btn.innerHTML;
       btn.classList.add('is-copied');
-      btn.innerHTML = `${ICONS.check}<span>Скопировано</span>`;
+      btn.innerHTML = `${ICONS.check}<span>${esc(t('btn.copied'))}</span>`;
       setTimeout(() => {
         btn.classList.remove('is-copied');
         btn.innerHTML = original;
       }, 1600);
     }
   } else {
-    toast('Не удалось скопировать ссылку', 'error');
+    toast(t('toast.copy_failed'), 'error');
   }
 }
 
-/* ---------------- делегированные клики ---------------- */
+/* ---------------- delegated clicks ---------------- */
 
 document.addEventListener('click', (event) => {
   const copyBtn = event.target.closest('[data-copy]');
   if (copyBtn) {
     copyText(copyBtn.dataset.copy || '', copyBtn);
+    return;
+  }
+  const copyIdBtn = event.target.closest('[data-copy-id]');
+  if (copyIdBtn) {
+    copyText(copyIdBtn.dataset.copyId || '', copyIdBtn);
     return;
   }
   const delBtn = event.target.closest('[data-del-offer]');
@@ -1540,10 +1999,13 @@ document.addEventListener('click', (event) => {
   }
 });
 
-/* ---------------- инициализация ---------------- */
+/* ---------------- init ---------------- */
 
 function init() {
+  applyLanguage();
   $$('.tab').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  $$('.lang-btn').forEach((btn) => btn.addEventListener('click', () => setLanguage(btn.dataset.lang)));
+  renderAutoRefreshBtn();
   checkHealth();
   setInterval(checkHealth, 30000);
   loadMeta();
