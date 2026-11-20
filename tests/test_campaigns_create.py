@@ -216,6 +216,89 @@ def test_rollback_when_offer_stream_misconfigured(client, api):
     assert delete_route.call_count == 1
 
 
+EXTRA_STREAM = {
+    "id": 1283,
+    "campaign_id": 734,
+    "type": "regular",
+    "name": "Extra stream",
+    "position": 3,
+    "state": "active",
+    "schema": "redirect",
+    "action_type": "http",
+    "action_payload": "https://other.com",
+    "filters": [],
+    "offers": [],
+}
+
+
+def _expect_rollback(resp, delete_route, message_part: str | None = None):
+    assert resp.status_code == 502
+    body = resp.json()["error"]
+    assert body["code"] == "keitaro_error"
+    if message_part:
+        assert message_part in body["message"]
+    assert delete_route.call_count == 1
+
+
+def test_rollback_when_extra_third_stream(client, api):
+    """Регрессия: Keitaro вернул ЛИШНИЙ третий поток — откат."""
+    _register_world(api)
+    api.get(f"{API}/campaigns/734/streams").mock(
+        return_value=json_response([*STREAMS, EXTRA_STREAM])
+    )
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    _expect_rollback(resp, delete_route, "ровно 2 потока")
+
+
+def test_rollback_when_country_mismatch(client, api):
+    """Регрессия: гео-фильтр вернулся с другим кодом страны — откат."""
+    _register_world(api)
+    bad_geo = {
+        **STREAMS[0],
+        "filters": [{"id": 386, "name": "country", "mode": "accept", "payload": ["DE"]}],
+    }
+    api.get(f"{API}/campaigns/734/streams").mock(return_value=json_response([bad_geo, STREAMS[1]]))
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    _expect_rollback(resp, delete_route, "Гео-поток")
+
+
+def test_rollback_when_redirect_mismatch(client, api):
+    """Регрессия: редирект ведёт не на google.com — откат."""
+    _register_world(api)
+    bad_redirect = {**STREAMS[0], "action_payload": "https://other.com"}
+    api.get(f"{API}/campaigns/734/streams").mock(
+        return_value=json_response([bad_redirect, STREAMS[1]])
+    )
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    _expect_rollback(resp, delete_route, "Гео-поток")
+
+
+def test_rollback_when_offer_id_mismatch(client, api):
+    """Регрессия: в офферном потоке другой offer_id — откат."""
+    _register_world(api)
+    bad_offer = {
+        **STREAMS[1],
+        "offers": [{"id": 41, "offer_id": 999, "share": 100, "state": "active"}],
+    }
+    api.get(f"{API}/campaigns/734/streams").mock(
+        return_value=json_response([STREAMS[0], bad_offer])
+    )
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    _expect_rollback(resp, delete_route, "Офферный поток")
+
+
 def test_name_in_archive_conflict(client, api):
     """Регрессия: Keitaro запрещает имя архивной кампании — сервис должен
     вернуть понятный 409, а не прятать причину за 502."""

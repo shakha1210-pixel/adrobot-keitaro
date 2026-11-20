@@ -101,19 +101,31 @@ class CampaignCreatorService:
         """Кампания считается успешной только при точном соответствии обоих потоков.
 
         GET может вернуть пустой/неполный список даже при HTTP 200 — проверяем
-        фактическую конфигурацию, иначе откатываем кампанию.
+        фактическую конфигурацию, иначе откатываем кампанию. Поля сверены с
+        реальными ответами Admin API: schema, action_type, action_payload,
+        position, filters (name/mode/payload), offers (offer_id/share).
         """
+        # 1. Активных потоков должно быть РОВНО два — лишний третий поток = ошибка.
+        if len(streams) != 2:
+            raise KeitaroApiError(
+                f"Ожидалось ровно 2 потока, Keitaro вернул {len(streams)} — "
+                "конфигурация не подтверждена, кампания откачена.",
+                public=True,
+            )
+
         geo_streams = [s for s in streams if s.schema == "redirect"]
         offer_streams = [s for s in streams if s.schema in ("offers", "landings")]
         if len(geo_streams) != 1 or len(offer_streams) != 1:
             raise KeitaroApiError(
-                "Ожидалось ровно 2 потока (редирект + офферный), Keitaro вернул "
-                f"{len(streams)} — конфигурация не подтверждена, кампания откачена.",
+                "Ожидалось ровно 2 потока (редирект + офферный) — конфигурация "
+                "не подтверждена, кампания откачена.",
                 public=True,
             )
         geo_stream = geo_streams[0]
         offer_stream = offer_streams[0]
 
+        # 2. Гео-поток: position=1, фильтр country/accept с выбранным гео,
+        #    редирект на REDIRECT_URL (google.com).
         geo_filter_ok = any(
             f.name == settings.country_filter_name
             and f.mode == settings.country_filter_mode
@@ -121,14 +133,20 @@ class CampaignCreatorService:
             in (f.payload if isinstance(f.payload, list) else str(f.payload or "").split())
             for f in geo_stream.filters
         )
-        if not (geo_stream.action_payload == settings.redirect_url and geo_filter_ok):
+        if not (
+            geo_stream.position == 1
+            and geo_stream.action_payload == settings.redirect_url
+            and geo_filter_ok
+        ):
             raise KeitaroApiError(
                 "Гео-поток настроен неверно — конфигурация не подтверждена, кампания откачена.",
                 public=True,
             )
 
+        # 3. Офферный поток: position=2, ровно один выбранный оффер с долей 100%.
         if not (
-            len(offer_stream.offers) == 1
+            offer_stream.position == 2
+            and len(offer_stream.offers) == 1
             and offer_stream.offers[0].offer_id == req.offer_id
             and offer_stream.offers[0].share == 100
         ):
