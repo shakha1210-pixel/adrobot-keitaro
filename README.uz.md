@@ -18,6 +18,7 @@
 ## Mundarija
 
 - [Nimalarni biladi](#nimalarni-biladi)
+- [Skrinshotlar](#skrinshotlar)
 - [Tez boshlash](#tez-boshlash)
 - [O'rnatish va ishga tushirish](#ornatish-va-ishga-tushirish)
 - [Migratsiyalar](#migratsiyalar)
@@ -31,6 +32,16 @@
 - [Xavfsizlik](#xavfsizlik)
 - [Ma'lum cheklovlar](#malum-cheklovlar)
 - [AI agentlardan foydalanish](#ai-agentlardan-foydalanish)
+
+## Skrinshotlar
+
+| Kampaniya yaratish | Muharrir: oqimlar, ulushlar va statistika |
+|---|---|
+| ![Kampaniya yaratish](docs/screenshots/01_creator_ru.png) | ![Kampaniya muharriri](docs/screenshots/02_editor_ru.png) |
+
+| Amallar tarixi | Interfeys o'zbek tilida |
+|---|---|
+| ![Amallar tarixi](docs/screenshots/03_history_ru.png) | ![Muharrir o'zbekcha](docs/screenshots/05_editor_uz.png) |
 
 ## Nimalarni biladi
 
