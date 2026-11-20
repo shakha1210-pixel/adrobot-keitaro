@@ -61,7 +61,9 @@ OFFERS = [
     },
 ]
 
-DOMAINS = [{"id": 3, "name": "in.posdk.xyz", "state": "active"}]
+# Домен совпадает с реальным трекером (kylovoa.com), чтобы демо-режим
+# работал из коробки с .env.example.
+DOMAINS = [{"id": 1813, "name": "kylovoa.com", "state": "active"}]
 GROUPS = [{"id": 7, "name": "FORTESTS", "type": "campaigns"}]
 SOURCES = [{"id": 5, "name": "FORTESTS"}]
 
