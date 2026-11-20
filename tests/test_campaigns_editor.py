@@ -32,7 +32,7 @@ GEO_STREAM = {
     "schema": "redirect",
     "action_type": "http",
     "action_payload": "https://google.com",
-    "filters": [{"id": 386, "name": "country_code", "mode": "allow", "payload": ["UZ"]}],
+    "filters": [{"id": 386, "name": "country", "mode": "accept", "payload": ["UZ"]}],
     "offers": [],
 }
 

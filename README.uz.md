@@ -121,7 +121,7 @@ Barcha parametrlar `.env`da (shablon — [.env.example](.env.example)):
 | `KEITARO_RETRIES` | `2` | **idempotent** operatsiyalarda 5xx/tarmoq xatosida retry |
 | `CAMPAIGN_PREFIX` | `test_familiya_` | kampaniya nomining majburiy prefiksi |
 | `CAMPAIGN_TYPE` | `position` | oqim rotatsiyasi (`position`/`weight`) |
-| `DEFAULT_DOMAIN` | `in.posdk.xyz` | kampaniya domeni (Keitaro'dagi nomi) |
+| `DEFAULT_DOMAIN` | `kylovoa.com` | kampaniya domeni (Keitaro'dagi nomi) |
 | `DEFAULT_GROUP` | `FORTESTS` | kampaniya guruhi (Keitaro'dagi nomi) |
 | `DEFAULT_SOURCE` | `FORTESTS` | trafik manbasi (Keitaro'dagi nomi) |
 | `REDIRECT_URL` | `https://google.com` | geо-oqimning manzili |
@@ -264,7 +264,7 @@ adrobot-keitaro/
 
 ## Ma'lum cheklovlar
 
-- Keitaro maydonlarining aniq nomlari (`country_code` filtr, `POST /campaigns`da `domain_id`) Admin API v1 hujjati bilan solishtirilgan; agar sizning Keitaro versiyangiz qabul qilmasa — tuzatish bitta joyda (`app/services/campaign_creator.py`).
+- Keitaro maydonlarining aniq nomlari (mamlakat filtri uchun `country`/`accept`, ofer oqimi uchun `schema: "landings"`, `POST /campaigns`da `domain_id`) **haqiqiy trekerda tekshirilgan**; boshqa Keitaro versiyasi uchun — tuzatish bitta joyda (`app/services/campaign_creator.py` va `.env`dagi `COUNTRY_FILTER_*`).
 - Oqim PUT'i — ko'rinishni to'liq almashtirish (Admin API v1 shunday ishlaydi); maydonlar saqlanishi asl payload yuborish bilan ta'minlanadi, lekin xatti-harakat hujjat va mok-serverda tekshirilgan — sizning Keitaro o'rnatmangizda emas.
 - Interfeys — rus va o'zbek tillarida (sarlavhadagi almashtirgich); **backend xato xabarlari hozircha rus tilida** (mijoz xabarlari lokallashtirilgan, server xabarlari yo'q).
 - Muharrirda statistika tugma orqali yangilanadi (taymerli avto-yangilanish yo'q).

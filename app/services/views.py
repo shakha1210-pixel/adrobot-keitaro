@@ -25,9 +25,7 @@ def build_campaign_out(
     settings: Settings,
 ) -> CampaignOut:
     domain = normalize_domain(
-        campaign.domain
-        or refs.domain_name(campaign.domain_id)
-        or settings.default_domain
+        campaign.domain or refs.domain_name(campaign.domain_id) or settings.default_domain
     )
     url = f"https://{domain}/{campaign.alias}" if domain and campaign.alias else None
     return CampaignOut(

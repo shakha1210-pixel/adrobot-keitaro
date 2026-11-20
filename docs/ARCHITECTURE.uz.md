@@ -1,6 +1,6 @@
 # Arxitektura: Adrobot — Keitaro ustidan o'ram (wrapper)
 
-> 🇷🇺 По-русски: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md) · Holat: **amalga oshirilgan, testlar bilan qoplangan (48) va CI'da tekshiriladi**.
+> 🇷🇺 По-русски: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md) · Holat: **amalga oshirilgan, testlar bilan qoplangan (51) va CI'da tekshiriladi**.
 
 ## 1. Maqsad va chegaralar
 

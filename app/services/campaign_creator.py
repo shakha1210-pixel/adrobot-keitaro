@@ -187,6 +187,9 @@ class CampaignCreatorService:
                     "offers": [{"offer_id": req.offer_id, "share": 100}],
                 }
             )
+            # Финальная сверка — тоже внутри rollback-границы: если потоки созданы,
+            # а GET упал, кампания не должна остаться «сиротой» без ответа клиенту.
+            streams_data = await self._client.list_streams(campaign_id)
         except Exception as exc:
             log.error("сбой при создании потоков кампании %s, откатываем: %s", campaign_id, exc)
             try:
@@ -203,7 +206,6 @@ class CampaignCreatorService:
             )
             raise
 
-        streams_data = await self._client.list_streams(campaign_id)
         streams = [
             Stream.from_dict(d)
             for d in streams_data

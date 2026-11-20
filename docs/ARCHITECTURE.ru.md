@@ -1,6 +1,6 @@
 # Архитектура: Adrobot — обёртка над Keitaro
 
-> 🇺🇿 O'zbekcha: [ARCHITECTURE.uz.md](ARCHITECTURE.uz.md) · Статус: **реализовано, покрыто тестами (48) и прогоняется в CI**.
+> 🇺🇿 O'zbekcha: [ARCHITECTURE.uz.md](ARCHITECTURE.uz.md) · Статус: **реализовано, покрыто тестами (51) и прогоняется в CI**.
 
 ## 1. Цель и границы
 

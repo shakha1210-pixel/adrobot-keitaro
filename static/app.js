@@ -1391,7 +1391,7 @@ function isOfferStream(stream) {
 function renderStreamMini(stream, idx, geo) {
   const isOffers = isOfferStream(stream);
   const offerNames = ((stream && stream.offers) || []).map((o) => o.offer_name).filter(Boolean);
-  const geoFilter = ((stream && stream.filters) || []).find((f) => f.name === 'country_code');
+  const geoFilter = ((stream && stream.filters) || []).find((f) => f.name === 'country' || f.name === 'country_code');
   const geoValue = geoFilter && geoFilter.payload && geoFilter.payload.length ? geoFilter.payload.join(', ') : (geo || '');
   const target = stream && stream.action_payload ? stream.action_payload : '';
   return `
@@ -1409,7 +1409,7 @@ function renderStreamMini(stream, idx, geo) {
       </div>
       ${isOffers
         ? ''
-        : `<div class="stream-mini-filters"><span class="chip chip--filter"><span class="chip-key">country_code</span> = ${esc(geoValue || '—')}</span></div>`}
+        : `<div class="stream-mini-filters"><span class="chip chip--filter"><span class="chip-key">${esc(geoFilter ? geoFilter.name : 'country')}</span> = ${esc(geoValue || '—')}</span></div>`}
     </div>`;
 }
 

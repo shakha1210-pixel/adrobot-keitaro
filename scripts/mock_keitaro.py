@@ -183,8 +183,21 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(stream)
 
         if path == "/report/build" and method == "POST":
+            body = self._body()
+            campaign_filter = None
+            for f in body.get("filters") or []:
+                if f.get("name") == "campaign_id":
+                    try:
+                        campaign_filter = int(f.get("expression"))
+                    except (TypeError, ValueError):
+                        campaign_filter = None
             rows = []
             for stream in STREAMS.values():
+                if (
+                    campaign_filter is not None
+                    and int(stream.get("campaign_id", 0)) != campaign_filter
+                ):
+                    continue
                 for offer in stream.get("offers") or []:
                     rows.append(_stats(stream["id"], offer["offer_id"]))
             return self._send(

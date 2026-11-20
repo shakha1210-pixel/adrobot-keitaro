@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # --- Параметры создаваемых кампаний ---
     campaign_prefix: str = "test_familiya_"
     campaign_type: str = "position"  # ротация потоков «по позиции»
-    default_domain: str = "in.posdk.xyz"
+    default_domain: str = "kylovoa.com"
     default_group: str = "FORTESTS"
     default_source: str = "FORTESTS"
     redirect_url: str = "https://google.com"

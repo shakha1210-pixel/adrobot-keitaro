@@ -121,7 +121,7 @@ alembic current                               # текущая ревизия
 | `KEITARO_RETRIES` | `2` | ретраи **идемпотентных** операций при 5xx/сетевых ошибках |
 | `CAMPAIGN_PREFIX` | `test_familiya_` | обязательный префикс названия кампании |
 | `CAMPAIGN_TYPE` | `position` | ротация потоков (`position`/`weight`) |
-| `DEFAULT_DOMAIN` | `in.posdk.xyz` | домен кампании (имя в Keitaro) |
+| `DEFAULT_DOMAIN` | `kylovoa.com` | домен кампании (имя в Keitaro) |
 | `DEFAULT_GROUP` | `FORTESTS` | группа кампании (имя в Keitaro) |
 | `DEFAULT_SOURCE` | `FORTESTS` | источник трафика (имя в Keitaro) |
 | `REDIRECT_URL` | `https://google.com` | назначение гео-потока |
@@ -264,7 +264,7 @@ adrobot-keitaro/
 
 ## Известные ограничения
 
-- Точные имена полей Keitaro (`country_code` для фильтра страны, `domain_id` в `POST /campaigns`) сверены с документацией Admin API v1; если конкретная версия Keitaro их не примет — правка в одном месте (`app/services/campaign_creator.py`).
+- Точные имена полей Keitaro (`country`/`accept` для фильтра страны, `schema: "landings"` для офферного потока, `domain_id` в `POST /campaigns`) **проверены на реальном трекере**; для другой версии Keitaro — правка в одном месте (`app/services/campaign_creator.py` и `COUNTRY_FILTER_*` в `.env`).
 - PUT потока — полная замена представления (так работает Admin API v1); сохранность полей обеспечивается отправкой исходного payload, но поведение проверено на документации и мок-сервере, а не на вашей инсталляции Keitaro.
 - Интерфейс — на русском и узбекском (переключатель в шапке); **сообщения об ошибках от бэкенда пока на русском** (клиентские сообщения локализованы, серверные — нет).
 - Статистика в редакторе обновляется по кнопке (авто-обновления по таймеру нет).

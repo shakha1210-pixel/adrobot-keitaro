@@ -31,7 +31,7 @@ STREAMS = [
         "schema": "redirect",
         "action_type": "http",
         "action_payload": "https://google.com",
-        "filters": [{"id": 386, "name": "country_code", "mode": "allow", "payload": ["UZ"]}],
+        "filters": [{"id": 386, "name": "country", "mode": "accept", "payload": ["UZ"]}],
         "offers": [],
     },
     {
@@ -75,7 +75,7 @@ def test_create_happy_path(client, api):
     assert geo_stream["position"] == 1
     assert geo_stream["schema"] == "redirect"
     assert geo_stream["action_payload"] == "https://google.com"
-    assert geo_stream["filters"] == [{"name": "country_code", "mode": "allow", "payload": ["UZ"]}]
+    assert geo_stream["filters"] == [{"name": "country", "mode": "accept", "payload": ["UZ"]}]
 
     offer_stream = body["streams"][1]
     assert offer_stream["schema"] == "landings"  # реальный Keitaro: офферы в landings-схеме
@@ -156,6 +156,25 @@ def test_rollback_on_stream_failure(client, api):
     # сервис откатывает созданную кампанию и просит свериться с админкой.
     assert resp.json()["error"]["code"] == "keitaro_ambiguous"
     assert delete_route.call_count == 1  # кампания откачена (архивирована)
+
+    ops = client.get("/api/operations").json()["items"]
+    assert ops[0]["action"] == "create_campaign"
+    assert ops[0]["status"] == "error"
+
+
+def test_rollback_when_verification_fails(client, api):
+    """Регрессия: потоки созданы, но финальный GET /streams упал — кампания
+    не должна остаться в Keitaro без ответа клиенту (откат)."""
+    _register_world(api)
+    api.get(f"{API}/campaigns/734/streams").mock(
+        side_effect=httpx.ConnectError("verification failed")
+    )
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    assert resp.status_code == 502
+    assert delete_route.call_count == 1  # кампания откачена
 
     ops = client.get("/api/operations").json()["items"]
     assert ops[0]["action"] == "create_campaign"
