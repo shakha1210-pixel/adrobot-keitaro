@@ -1,6 +1,6 @@
 # Arxitektura: Adrobot — Keitaro ustidan o'ram (wrapper)
 
-> 🇷🇺 По-русски: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md) · Holat: **amalga oshirilgan, testlar bilan qoplangan (51) va CI'da tekshiriladi**.
+> 🇷🇺 По-русски: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md) · Holat: **amalga oshirilgan, testlar bilan qoplangan (54) va CI'da tekshiriladi**.
 
 ## 1. Maqsad va chegaralar
 
@@ -65,7 +65,7 @@ adrobot-keitaro/
 │       └── operations.py
 ├── alembic/                 # migratsiyalar (alembic upgrade head)
 ├── static/                  # index.html, styles.css, premium.css, fx.js, app.js, favicon.svg
-├── tests/                   # pytest + respx (51 test)
+├── tests/                   # pytest + respx (54 test)
 ├── scripts/                 # dev.ps1, check.ps1, mock_keitaro.py
 ├── .github/workflows/ci.yml # lint, testlar (3.11–3.13), migratsiyalar, frontend
 ├── pyproject.toml           # ruff + pytest sozlamalari
@@ -148,6 +148,7 @@ Kirish: `{ name, geo, offer_id }`.
 6. **2-oqim (2-pozitsiya):** filtrsiz, «offerlar» sxemasi, bitta offer, ulushi 100%.
 7. `operation_log`ga yozuv (muvaffaqiyat/xato).
 8. **Rollback:** 5–6-qadam yiqilsa — kampaniya `DELETE` qilinadi (arxivlanadi), xato logga yoziladi.
+9. **Oqimlarni tekshirish** (xuddi shu rollback-chegarada): GET javobi fakt bo'yicha tekshiriladi — aynan bitta kerakli geo-filtr va redirect URL bilan redirect-oqim hamda so'ralgan ofer 100% bilan bitta ofer oqimi. To'liqsiz/noto'g'ri javob ham rollback'ga olib keladi.
 
 Oqimlar tartibi muhim: Keitaro ularni yuqoridan pastga tekshiradi — «geо-oqim» birinchi, «catch-all» ikkinchi (`CAMPAIGN_TYPE=position`).
 
@@ -228,7 +229,7 @@ Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast
 
 ## 13. Test
 
-- `pytest` + `respx` (Keitaro mock): **51 test**.
+- `pytest` + `respx` (Keitaro mock): **54 test**.
 - Qamrov: yaratish (happy path, validatsiya, rollback, POST'ning noaniq natijasi), muharrir (ulushlar, ziddiyatlar, boshqa konfiguratsiyaning saqlanishi, statistika degradatsiyasi, takroriy operatsiyalar), Keitaro mijozi (idempotent retry, mutatsiyalarda retry yo'q, timeoutlar, 4xx/401), health (live/ready, bog'liqlik yiqilganda `503`), audit (shu jumladan DB yiqilishi → xavfsiz 500), korrelyatsion ID'lar, sizib chiqishlarning yo'qligi.
 - Haqiqiy Keitaro'da `test_<familiya>_` prefiksi bilan qo'lda smoke-test.
 - CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)): ruff lint + format, pytest Python 3.11–3.13'da, toza bazada `alembic upgrade head`, frontend uchun `node --check`.
@@ -261,5 +262,6 @@ Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast
 3. **Rollback** — kampaniya `DELETE /campaigns/{id}` orqali arxivlanadi; `POST /campaigns` natijasi noaniq bo'lsa rollback imkonsiz (ID noma'lum) — auditga yoziladi va mijozga aytiladi.
 4. **Mutatsiyalarni takrorlash** — taqiqlangan, noaniq natija alohida `keitaro_ambiguous` kodida.
 5. **PUT'da oqim konfiguratsiyasini yo'qotish** — asl payload yuborish bilan bartaraf etilgan (§5).
+6. **Yaratishning «jim» muvaffaqiyati** — bartaraf etilgan: ikkala oqim haqiqiy GET javobi bo'yicha solishtiriladi, nomuvofiqlik kampaniyani qaytaradi (§7).
 
 > Haqiqiy Keitaro'da (tlgk.host) tekshirilgan: mamlakat filtri — `name="country", mode="accept"`; ofer oqimi — `schema="landings"` + majburiy `action_type="http"`; `POST /campaigns`da `domain_id` qo'llab-quvvatlanadi; arxivlangan kampaniya nomini qayta ishlatib bo'lmaydi (xizmat maslahat bilan `409` qaytaradi). Barcha kalitlar — `app/services/campaign_creator.py` va `.env`da (`COUNTRY_FILTER_*`).

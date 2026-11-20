@@ -43,6 +43,7 @@
 - 1-oqim (1-pozitsiya): «davlat = geо» filtri → `REDIRECT_URL` (Google)ga redirect;
 - 2-oqim (2-pozitsiya): catch-all → tanlangan offer, ulushi 100%;
 - oqimlar qadamida xato bo'lsa, yaratilgan kampaniya avtomatik qaytariladi (arxivlanadi);
+- **muvaffaqiyat faqat tekshiruvdan keyin e'lon qilinadi**: aynan ikkita to'g'ri sozlangan oqim (geo-filtr va redirect, offer 100%) — GETning to'liqsiz javobi ham rollback'ga olib keladi;
 - har bir operatsiya `operation_log` audit jadvaliga yoziladi.
 
 **Kampaniya muharriri** (UI'dagi `Kampaniya muharriri`):
@@ -171,13 +172,14 @@ Keitaro — tashqi tizim: timeout berishi, 5xx qaytarishi yoki so'rovni tasdiqsi
 - **Mutatsiyalar ko'r-ko'rona takrorlanmaydi.** `POST /campaigns` va `POST /streams` aynan bir marta bajariladi: Keitaro idempotency-kalitlarni qo'llab-quvvatlamaydi, timeout esa «yaratilmadi» degani emas. Timeout/5xx bo'lsa `keitaro_ambiguous` qaytadi va admin bilan solishtirish so'raladi; qisman xato bo'lsa yaratilgan kampaniya qaytariladi (arxivlanadi).
 - **O'qishlar takrorlanadi.** GET (va idempotent PUT/DELETE hamda read-only `POST /report/build`) tarmoq xatolari va 5xx/429 da `KEITARO_RETRIES` marta retry qilinadi.
 - **Konfiguratsiya saqlanadi.** Oqim PUT'i GET'dan olingan asl ko'rinishdan quriladi — faqat offer bog'lanishlari o'zgaradi.
+- **Oqimlar tekshiruvi.** Yaratilgach ikkala oqim GET javobi bo'yicha tekshiriladi; nomuvofiqlik — kampaniyani tushunarli xato bilan qaytarish.
 - **Xatolar sizib chiqmaydi.** Keitaro'ning ichki xabarlari faqat logga yoziladi; mijozga xavfsiz matn qaytadi.
 - **Hisobot yiqilsa muharrir ishlashda davom etadi** — statistika nollarga tushadi, logga ogohlantirish yoziladi.
 
 ## Testlar va kod sifati
 
 ```bash
-pytest                        # 51 ta test
+pytest                        # 54 ta test
 pytest -v                     # batafsil
 pytest tests/test_keitaro_client.py -v   # retry siyosati va noaniq natijalar
 ruff check .                  # linter
@@ -228,7 +230,7 @@ adrobot-keitaro/
 │   └── routers/             # meta (health), offers, campaigns, operations
 ├── alembic/                 # migratsiyalar (alembic upgrade head)
 ├── static/                  # UI: index.html, styles.css, premium.css, fx.js, app.js
-├── tests/                   # pytest + respx (51 test)
+├── tests/                   # pytest + respx (54 test)
 ├── scripts/
 │   ├── dev.ps1              # Windows'da tez ishga tushirish
 │   ├── check.ps1            # lint + testlar + frontend
@@ -265,6 +267,7 @@ adrobot-keitaro/
 ## Ma'lum cheklovlar
 
 - Keitaro maydonlarining aniq nomlari (mamlakat filtri uchun `country`/`accept`, ofer oqimi uchun `schema: "landings"`, `POST /campaigns`da `domain_id`) **haqiqiy trekerda tekshirilgan**; boshqa Keitaro versiyasi uchun — tuzatish bitta joyda (`app/services/campaign_creator.py` va `.env`dagi `COUNTRY_FILTER_*`).
+- API kalitida Keitaro'da ofer yaratish huquqi yo'q (403): yangi oferlar admin panelda yaratiladi, muharrir mavjud oferlar bilan ishlaydi.
 - Oqim PUT'i — ko'rinishni to'liq almashtirish (Admin API v1 shunday ishlaydi); maydonlar saqlanishi asl payload yuborish bilan ta'minlanadi, lekin xatti-harakat hujjat va mok-serverda tekshirilgan — sizning Keitaro o'rnatmangizda emas.
 - Interfeys — rus va o'zbek tillarida (sarlavhadagi almashtirgich); **backend xato xabarlari hozircha rus tilida** (mijoz xabarlari lokallashtirilgan, server xabarlari yo'q).
 - Muharrirda statistika tugma orqali yangilanadi (taymerli avto-yangilanish yo'q).
