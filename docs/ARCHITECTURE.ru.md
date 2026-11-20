@@ -122,15 +122,19 @@ Idempotency-ключи Keitaro официально не поддерживае�
 
 ### Поток-редирект (гео → Google)
 
-`schema: "redirect"`, `action_type: "http"`, `action_payload: <REDIRECT_URL>`, фильтр:
+`schema: "redirect"`, `action_type: "http"`, `action_payload: <REDIRECT_URL>`, фильтр (имена проверены на реальном Keitaro; настраиваются через `COUNTRY_FILTER_NAME`/`COUNTRY_FILTER_MODE`):
 
 ```json
-{"filters": [{"name": "country_code", "mode": "allow", "payload": ["UZ"]}]}
+{"filters": [{"name": "country", "mode": "accept", "payload": ["UZ"]}]}
 ```
 
 ### Поток офферов (catch-all)
 
-`schema: "offers"`, привязки офферов: `{"offers": [{"offer_id": 12, "share": 100}]}`.
+На реальном Keitaro офферные потоки — это **`schema: "landings"`** («Landing pages & offers») с массивом `offers`; `action_type` обязателен даже здесь:
+
+```json
+{"schema": "landings", "action_type": "http", "offers": [{"offer_id": 12, "share": 100}]}
+```
 
 ## 7. Сценарий A — создание кампании
 
@@ -256,4 +260,4 @@ Idempotency-ключи Keitaro официально не поддерживае�
 4. **Повторы мутаций** — запрещены, неоднозначный исход выделен в отдельный код `keitaro_ambiguous`.
 5. **Потеря конфигурации потока при PUT** — исключена за счёт отправки исходного payload (см. §5).
 
-> Единственная точка риска — имя фильтра страны `country_code` и поддержка `domain_id` в `POST /campaigns` на конкретной версии Keitaro: оба значения меняются в одном месте — `app/services/campaign_creator.py`.
+> Проверено на реальном Keitaro (tlgk.host): фильтр страны — `name="country", mode="accept"`; офферный поток — `schema="landings"` + обязательный `action_type="http"`; `domain_id` в `POST /campaigns` поддерживается; имя архивной кампании повторно использовать нельзя (сервис возвращает `409` с подсказкой). Все переключатели — в `app/services/campaign_creator.py` и `.env` (`COUNTRY_FILTER_*`).

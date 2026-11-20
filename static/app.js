@@ -554,9 +554,11 @@ function t(key, params) {
 
 function setLanguage(lang) {
   if (lang !== 'ru' && lang !== 'uz') return;
+  if (lang === currentLang) return;
   currentLang = lang;
   try { localStorage.setItem('adrobot.lang', lang); } catch (err) { /* storage unavailable */ }
   applyLanguage();
+  document.dispatchEvent(new CustomEvent('adrobot:languagechange', { detail: { language: lang } }));
 }
 
 function renderLangSwitch() {
@@ -577,8 +579,10 @@ function applyLanguage() {
   $$('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
 
   renderLangSwitch();
+  requestAnimationFrame(moveInk);
   renderHealthBadge();
   renderAutoRefreshBtn();
+  if (lastMetaError) renderMetaBanner(lastMetaError);
 
   /* creator tab */
   if (meta) {
@@ -762,8 +766,12 @@ async function checkHealth() {
   let titleKey = null;
   let titleParams = null;
   let titleRaw = '';
+  let apiVersion = null;
+  let databaseStatus = null;
   try {
     const health = await api('/health');
+    apiVersion = health.version || null;
+    databaseStatus = health.db === 'ok' ? 'ok' : (health.db ? 'error' : null);
     const states = {
       ok: ['ok', 'health.ok'],
       unreachable: ['warn', 'health.unreachable'],
@@ -787,7 +795,7 @@ async function checkHealth() {
     labelKey = 'health.api_down';
     titleRaw = err.message;
   }
-  lastHealth = { state, labelKey, labelParams, titleKey, titleParams, titleRaw };
+  lastHealth = { state, labelKey, labelParams, titleKey, titleParams, titleRaw, apiVersion, databaseStatus };
   renderHealthBadge();
 }
 
@@ -796,26 +804,41 @@ function renderHealthBadge() {
   const h = lastHealth;
   healthBadge.className = `health health--${h.state}`;
   healthBadge.title = h.titleKey ? t(h.titleKey, h.titleParams) : (h.titleRaw || '');
+  if (h.apiVersion) healthBadge.dataset.apiVersion = String(h.apiVersion);
+  else delete healthBadge.dataset.apiVersion;
+  if (h.databaseStatus) healthBadge.dataset.database = h.databaseStatus;
+  else delete healthBadge.dataset.database;
   $('.health-label', healthBadge).textContent = t(h.labelKey, h.labelParams);
 }
 
 /* ---------------- meta configuration ---------------- */
 
-async function loadMeta() {
+let lastMetaError = null;
+
+function renderMetaBanner(err) {
+  lastMetaError = err || null;
   const banner = $('#metaBanner');
+  if (!err) {
+    banner.hidden = true;
+    return;
+  }
+  banner.hidden = false;
+  banner.innerHTML = `
+    ${ICONS.alert}
+    <span>${esc(t('meta.banner', { message: err.message }))}
+      <button type="button" class="link-btn" id="metaRetry">${esc(t('btn.retry'))}</button>
+    </span>`;
+  $('#metaRetry').addEventListener('click', loadMeta);
+}
+
+async function loadMeta() {
   try {
     meta = await api('/api/meta');
-    banner.hidden = true;
+    renderMetaBanner(null);
     applyMeta();
   } catch (err) {
     meta = null;
-    banner.hidden = false;
-    banner.innerHTML = `
-      ${ICONS.alert}
-      <span>${esc(t('meta.banner', { message: err.message }))}
-        <button type="button" class="link-btn" id="metaRetry">${esc(t('btn.retry'))}</button>
-      </span>`;
-    $('#metaRetry').addEventListener('click', loadMeta);
+    renderMetaBanner(err);
     setCreatorEnabled(false);
   } finally {
     metaAttempted = true;
@@ -857,6 +880,15 @@ function setCreatorEnabled(enabled) {
 
 /* ---------------- tabs ---------------- */
 
+function moveInk() {
+  const ink = $('.tab-ink');
+  const active = $('.tab.is-active');
+  if (!ink || !active) return;
+  ink.style.width = `${active.offsetWidth}px`;
+  ink.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+window.addEventListener('resize', moveInk);
+
 function switchTab(name) {
   currentTab = name;
   ['create', 'editor', 'history'].forEach((key) => {
@@ -868,6 +900,7 @@ function switchTab(name) {
     btn.setAttribute('aria-selected', String(active));
     panel.tabIndex = active ? 0 : -1;
   });
+  moveInk();
   if (name === 'history') loadHistory();
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -1070,16 +1103,16 @@ function emptyState(title, hint) {
       <svg class="empty-illus" viewBox="0 0 120 120" aria-hidden="true">
         <defs>
           <linearGradient id="${gradId}" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#6D5DF6"/>
-            <stop offset="1" stop-color="#22D3EE"/>
+            <stop offset="0" stop-color="#9aa8ff"/>
+            <stop offset="1" stop-color="#9aa8ff"/>
           </linearGradient>
         </defs>
-        <rect x="16" y="16" width="88" height="88" rx="20" fill="none" stroke="#1F2A44" stroke-width="2" stroke-dasharray="5 7"/>
-        <circle cx="58" cy="56" r="21" fill="none" stroke="#2A3A5F" stroke-width="2"/>
+        <rect x="16" y="16" width="88" height="88" rx="20" fill="none" stroke="#262b35" stroke-width="2" stroke-dasharray="5 7"/>
+        <circle cx="58" cy="56" r="21" fill="none" stroke="#363c49" stroke-width="2"/>
         <circle cx="58" cy="56" r="7" fill="url(#${gradId})" opacity="0.9"/>
-        <path d="M73.5 71.5 L87 85" stroke="#2A3A5F" stroke-width="3" stroke-linecap="round"/>
+        <path d="M73.5 71.5 L87 85" stroke="#363c49" stroke-width="3" stroke-linecap="round"/>
         <circle cx="34" cy="34" r="3" fill="url(#${gradId})" opacity="0.55"/>
-        <circle cx="88" cy="30" r="2.5" fill="#22D3EE" opacity="0.4"/>
+        <circle cx="88" cy="30" r="2.5" fill="#9aa8ff" opacity="0.4"/>
       </svg>
       <h3 class="empty-title">${esc(title)}</h3>
       <p class="empty-hint">${esc(hint)}</p>
@@ -1350,8 +1383,13 @@ function renderCreateSuccess(campaign, streams, geo) {
   $('#createAnotherBtn').addEventListener('click', resetCreator);
 }
 
+function isOfferStream(stream) {
+  // Реальный Keitaro хранит офферы в schema="landings"; "offers" — legacy.
+  return !!(stream && (stream.is_offer_stream || stream.schema === 'offers' || stream.schema === 'landings'));
+}
+
 function renderStreamMini(stream, idx, geo) {
-  const isOffers = !!(stream && (stream.is_offer_stream || stream.schema === 'offers'));
+  const isOffers = isOfferStream(stream);
   const offerNames = ((stream && stream.offers) || []).map((o) => o.offer_name).filter(Boolean);
   const geoFilter = ((stream && stream.filters) || []).find((f) => f.name === 'country_code');
   const geoValue = geoFilter && geoFilter.payload && geoFilter.payload.length ? geoFilter.payload.join(', ') : (geo || '');
@@ -1492,6 +1530,23 @@ function renderEditor() {
     <div id="editorHeaderWrap">${renderCampaignHeader(editorState.campaign, editorState.stats)}</div>
     <div id="streamsSection">${renderStreamsSection()}</div>`;
   initAddOfferCombos();
+  animateCounts(root);
+}
+
+function animateCounts(root) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  $$('[data-count]', root).forEach((el) => {
+    const end = Number(el.dataset.count) || 0;
+    const pct = el.dataset.pct === '1';
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min((now - t0) / 800, 1);
+      const v = end * (1 - Math.pow(1 - k, 3));
+      el.textContent = pct ? fmtPct1(v) : fmtInt(v);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 function renderCampaignHeader(campaign, stats) {
@@ -1521,19 +1576,19 @@ function renderCampaignHeader(campaign, stats) {
         <button type="button" class="btn btn--ghost btn--sm" data-copy="${esc(url)}">${ICONS.copy}<span>${esc(t('btn.copy'))}</span></button>
       </div>
       <div class="stats-grid">
-        ${statTile(t('stat.clicks'), fmtInt(stats.clicks))}
-        ${statTile(t('stat.unique'), fmtInt(stats.unique_clicks))}
-        ${statTile(t('stat.conversions'), fmtInt(stats.conversions))}
-        ${statTile(t('stat.cr'), fmtPct1(stats.cr), true)}
+        ${statTile(t('stat.clicks'), fmtInt(stats.clicks), false, num0(stats.clicks))}
+        ${statTile(t('stat.unique'), fmtInt(stats.unique_clicks), false, num0(stats.unique_clicks))}
+        ${statTile(t('stat.conversions'), fmtInt(stats.conversions), false, num0(stats.conversions))}
+        ${statTile(t('stat.cr'), fmtPct1(stats.cr), true, num0(stats.cr))}
       </div>
     </div>`;
 }
 
-function statTile(label, value, accent = false) {
+function statTile(label, value, accent = false, raw = null) {
   return `
     <div class="stat-tile">
       <div class="stat-tile-label">${esc(label)}</div>
-      <div class="stat-tile-value${accent ? ' stat-tile-value--accent' : ''}">${esc(value)}</div>
+      <div class="stat-tile-value${accent ? ' stat-tile-value--accent' : ''}"${raw !== null ? ` data-count="${raw}" data-pct="${accent ? 1 : 0}"` : ''}>${esc(value)}</div>
     </div>`;
 }
 
@@ -1550,7 +1605,7 @@ function renderStreamsSection() {
 }
 
 function renderStreamCard(stream, idx) {
-  const isOffers = !!(stream.is_offer_stream || stream.schema === 'offers');
+  const isOffers = isOfferStream(stream);
   const filters = stream.filters || [];
   return `
     <div class="card stream-card">
@@ -1580,13 +1635,7 @@ function renderRedirectAction(stream) {
     </div>`;
 }
 
-const SHARE_GRADIENTS = [
-  'linear-gradient(90deg, #6D5DF6, #22D3EE)',
-  'linear-gradient(90deg, #22D3EE, #34D399)',
-  'linear-gradient(90deg, #34D399, #A78BFA)',
-  'linear-gradient(90deg, #F59E0B, #FBBF24)',
-  'linear-gradient(90deg, #F472B6, #6D5DF6)',
-];
+const SHARE_GRADIENTS = ['#9aa8ff', '#7dd3c0', '#c4b5fd', '#f5b45a', '#f4a3c4'];
 
 function renderOffersBlock(stream) {
   const offers = stream.offers || [];
@@ -1621,7 +1670,7 @@ function renderOfferRow(stream, offer, idx, count, totalShare) {
   const last = count <= 1;
   const tooltip = last ? t('offer.delete_last') : t('offer.delete');
   return `
-    <tr>
+    <tr style="--i:${idx}">
       <td>
         <div class="offer-cell">
           <span class="offer-cell-name">${esc(offer.offer_name || '—')}</span>
@@ -1869,12 +1918,12 @@ function renderHistory(items) {
         <thead>
           <tr><th>${esc(t('history.th.time'))}</th><th>${esc(t('history.th.action'))}</th><th>${esc(t('history.th.campaign'))}</th><th>${esc(t('history.th.status'))}</th></tr>
         </thead>
-        <tbody>${items.map(renderOpRow).join('')}</tbody>
+        <tbody>${items.map((op, i) => renderOpRow(op, i)).join('')}</tbody>
       </table>
     </div>`;
 }
 
-function renderOpRow(op) {
+function renderOpRow(op, i = 0) {
   const action = ACTION_BADGES[op.action] || { labelKey: null, cls: '' };
   const actionLabel = action.labelKey ? t(action.labelKey) : esc(op.action || '—');
   const ok = op.status === 'ok';
@@ -1888,7 +1937,7 @@ function renderOpRow(op) {
     ? `<span class="badge badge--ok">${ICONS.check}<span>OK</span></span>`
     : `<span class="badge badge--err" data-tooltip="${esc(op.error || t('status.error_unknown'))}">${ICONS.alert}<span>${esc(t('status.error'))}</span></span>`;
   return `
-    <tr>
+    <tr style="--i:${Math.min(i, 14)}">
       <td class="time-cell">${fmtDateTimeLocal(op.created_at)}</td>
       <td><span class="badge ${action.cls}">${actionLabel}</span></td>
       <td>${campaignCell}</td>
@@ -2010,6 +2059,8 @@ function init() {
   setInterval(checkHealth, 30000);
   loadMeta();
   renderEditor();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveInk);
+  moveInk();
 }
 
 if (document.readyState === 'loading') {

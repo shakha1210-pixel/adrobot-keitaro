@@ -41,7 +41,8 @@ STREAMS = [
         "name": "→ Offer Twelve",
         "position": 2,
         "state": "active",
-        "schema": "offers",
+        "schema": "landings",
+        "action_type": "http",
         "offers": [{"id": 41, "offer_id": 12, "share": 100, "state": "active"}],
     },
 ]
@@ -77,7 +78,7 @@ def test_create_happy_path(client, api):
     assert geo_stream["filters"] == [{"name": "country_code", "mode": "allow", "payload": ["UZ"]}]
 
     offer_stream = body["streams"][1]
-    assert offer_stream["schema"] == "offers"
+    assert offer_stream["schema"] == "landings"  # реальный Keitaro: офферы в landings-схеме
     assert offer_stream["is_offer_stream"] is True
     assert offer_stream["offers"][0]["offer_id"] == 12
     assert offer_stream["offers"][0]["share"] == 100
@@ -97,8 +98,10 @@ def test_create_happy_path(client, api):
     first = _json.loads(api.post(f"{API}/streams").calls[0].request.content)
     second = _json.loads(api.post(f"{API}/streams").calls[1].request.content)
     assert first["position"] == 1 and first["schema"] == "redirect"
-    assert first["filters"][0]["payload"] == ["UZ"]  # гео нормализовано в верхний регистр
-    assert second["position"] == 2 and second["schema"] == "offers"
+    # Реальный Keitaro использует name="country", mode="accept"
+    assert first["filters"] == [{"name": "country", "mode": "accept", "payload": ["UZ"]}]
+    assert second["position"] == 2 and second["schema"] == "landings"
+    assert second["action_type"] == "http"  # обязателен на реальном Keitaro
     assert second["offers"] == [{"offer_id": 12, "share": 100}]
 
     # аудит: успешная операция
@@ -153,6 +156,28 @@ def test_rollback_on_stream_failure(client, api):
     # сервис откатывает созданную кампанию и просит свериться с админкой.
     assert resp.json()["error"]["code"] == "keitaro_ambiguous"
     assert delete_route.call_count == 1  # кампания откачена (архивирована)
+
+    ops = client.get("/api/operations").json()["items"]
+    assert ops[0]["action"] == "create_campaign"
+    assert ops[0]["status"] == "error"
+
+
+def test_name_in_archive_conflict(client, api):
+    """Регрессия: Keitaro запрещает имя архивной кампании — сервис должен
+    вернуть понятный 409, а не прятать причину за 502."""
+    _register_world(api)
+    api.post(f"{API}/campaigns").mock(
+        return_value=httpx.Response(
+            422, json={"name": ["Name has already been used in the archive"]}
+        )
+    )
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    assert resp.status_code == 409
+    body = resp.json()["error"]
+    assert body["code"] == "conflict"
+    assert "архиве" in body["message"]
 
     ops = client.get("/api/operations").json()["items"]
     assert ops[0]["action"] == "create_campaign"

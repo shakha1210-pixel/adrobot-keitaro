@@ -109,7 +109,8 @@ class CampaignEditorService:
         raise NotFoundError(f"Поток #{stream_id} не найден.")
 
     def _require_offers_stream(self, stream: Stream) -> None:
-        if stream.schema != "offers":
+        # Реальный Keitaro: офферы живут в schema="landings"; "offers" — legacy.
+        if stream.schema not in ("offers", "landings"):
             raise ValidationError(
                 "В этом потоке нельзя управлять офферами: он создан для редиректа, "
                 "а не для офферов."

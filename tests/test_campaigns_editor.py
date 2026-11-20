@@ -54,7 +54,7 @@ def _register_world(api, offers=None):
             "name": "Offers stream",
             "position": 2,
             "state": "active",
-            "schema": "offers",
+            "schema": "landings",  # реальный Keitaro: офферный поток — landings-схема
             # Поля, которыми редактор НЕ управляет, но обязан сохранить при PUT:
             "action_options": {"header": "X-Foo: bar"},
             "comments": "keep me intact",

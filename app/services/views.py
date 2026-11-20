@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from ..config import Settings
 from ..keitaro.models import Campaign, Stream
 from ..schemas import CampaignOut, CampaignStatsOut, FilterOut, StreamOfferOut, StreamOut
@@ -9,12 +11,24 @@ from .reference import ReferenceService
 from .report import CampaignTotals, OfferStats
 
 
+def normalize_domain(name: str | None) -> str | None:
+    """Реальный Keitaro отдаёт домен с протоколом и слэшем ("https://kylovoa.com/")."""
+    if not name:
+        return None
+    cleaned = re.sub(r"^https?://", "", str(name).strip()).rstrip("/")
+    return cleaned or None
+
+
 def build_campaign_out(
     campaign: Campaign,
     refs: ReferenceService,
     settings: Settings,
 ) -> CampaignOut:
-    domain = campaign.domain or refs.domain_name(campaign.domain_id) or settings.default_domain
+    domain = normalize_domain(
+        campaign.domain
+        or refs.domain_name(campaign.domain_id)
+        or settings.default_domain
+    )
     url = f"https://{domain}/{campaign.alias}" if domain and campaign.alias else None
     return CampaignOut(
         id=campaign.id,
@@ -68,7 +82,9 @@ def build_stream_out(
         action_payload=stream.action_payload,
         filters=[FilterOut(name=f.name, mode=f.mode, payload=f.payload) for f in stream.filters],
         offers=offers,
-        is_offer_stream=stream.schema == "offers",
+        # Реальный Keitaro хранит офферы в потоках schema="landings" («Landing pages & offers»);
+        # legacy-значение "offers" сохраняем для совместимости.
+        is_offer_stream=stream.schema in ("offers", "landings"),
     )
 
 

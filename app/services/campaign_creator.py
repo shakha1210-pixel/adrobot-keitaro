@@ -13,7 +13,7 @@ import re
 import secrets
 
 from ..config import Settings
-from ..errors import KeitaroApiError, NotFoundError, ValidationError
+from ..errors import ConflictError, KeitaroApiError, NotFoundError, ValidationError
 from ..keitaro.client import KeitaroClient
 from ..keitaro.models import Campaign, Stream
 from ..schemas import CampaignCreateOut, CampaignCreateRequest
@@ -121,6 +121,21 @@ class CampaignCreatorService:
         }
         try:
             campaign_data = await self._client.create_campaign(campaign_payload)
+        except KeitaroApiError as exc:
+            if exc.http_status == 422 and "archive" in (exc.message or "").lower():
+                # Keitaro запрещает повторно использовать имя архивной кампании.
+                log_operation(
+                    "create_campaign",
+                    campaign_name=req.name,
+                    payload={"name": req.name, "geo": req.geo, "offer_id": req.offer_id},
+                    status="error",
+                    error=str(exc),
+                )
+                raise ConflictError(
+                    "Кампания с таким названием уже есть в архиве Keitaro. "
+                    "Используйте другое название (например, добавьте «_2»)."
+                ) from exc
+            raise
         except Exception as exc:
             # ID неизвестен (ресурс мог быть создан, но Keitaro не подтвердил) —
             # откатить нельзя, фиксируем в аудите и сообщаем о сверке.
@@ -148,7 +163,13 @@ class CampaignCreatorService:
                     "action_type": "http",
                     "action_payload": settings.redirect_url,
                     "collect_clicks": True,
-                    "filters": [{"name": "country_code", "mode": "allow", "payload": [req.geo]}],
+                    "filters": [
+                        {
+                            "name": settings.country_filter_name,
+                            "mode": settings.country_filter_mode,
+                            "payload": [req.geo],
+                        }
+                    ],
                 }
             )
             await self._client.create_stream(
@@ -158,7 +179,10 @@ class CampaignCreatorService:
                     "name": f"→ {offer_name}"[:255],
                     "position": 2,
                     "state": "active",
-                    "schema": "offers",
+                    # Реальный Keitaro: офферный поток — это schema="landings"
+                    # («Landing pages & offers») с массивом offers; action_type обязателен.
+                    "schema": "landings",
+                    "action_type": "http",
                     "collect_clicks": True,
                     "offers": [{"offer_id": req.offer_id, "share": 100}],
                 }

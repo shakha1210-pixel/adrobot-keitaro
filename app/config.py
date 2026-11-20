@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     default_group: str = "FORTESTS"
     default_source: str = "FORTESTS"
     redirect_url: str = "https://google.com"
+    # Имена фильтра страны в Admin API зависят от версии Keitaro:
+    # проверено на реальном трекере — name="country", mode="accept".
+    country_filter_name: str = "country"
+    country_filter_mode: str = "accept"
 
     # --- Отчёт / статистика ---
     report_interval: str = "7_days_ago"

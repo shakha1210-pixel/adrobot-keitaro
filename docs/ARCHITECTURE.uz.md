@@ -122,15 +122,19 @@ Avtorizatsiya: `Api-Key: <kalit>` sarlavhasi.
 
 ### Redirect-oqim (geо → Google)
 
-`schema: "redirect"`, `action_type: "http"`, `action_payload: <REDIRECT_URL>`, filtr:
+`schema: "redirect"`, `action_type: "http"`, `action_payload: <REDIRECT_URL>`, filtr (nomlar haqiqiy Keitaro'da tekshirilgan; `COUNTRY_FILTER_NAME`/`COUNTRY_FILTER_MODE` orqali sozlanadi):
 
 ```json
-{"filters": [{"name": "country_code", "mode": "allow", "payload": ["UZ"]}]}
+{"filters": [{"name": "country", "mode": "accept", "payload": ["UZ"]}]}
 ```
 
 ### Offerlar oqimi (catch-all)
 
-`schema: "offers"`, offer bog'lanishlari: `{"offers": [{"offer_id": 12, "share": 100}]}`.
+Haqiqiy Keitaro'da offer oqimlari — **`schema: "landings"`** («Landing pages & offers») va `offers` massivi; `action_type` bu yerda ham majburiy:
+
+```json
+{"schema": "landings", "action_type": "http", "offers": [{"offer_id": 12, "share": 100}]}
+```
 
 ## 7. A stsenariy — kampaniya yaratish
 
@@ -256,4 +260,4 @@ Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast
 4. **Mutatsiyalarni takrorlash** — taqiqlangan, noaniq natija alohida `keitaro_ambiguous` kodida.
 5. **PUT'da oqim konfiguratsiyasini yo'qotish** — asl payload yuborish bilan bartaraf etilgan (§5).
 
-> Yagona xavf nuqtasi — mamlakat filtrining nomi `country_code` va `POST /campaigns`da `domain_id` qo'llab-quvvatlanishi Keitaro'ning aniq versiyasiga bog'liq: ikkala qiymat bitta joyda — `app/services/campaign_creator.py`da o'zgartiriladi.
+> Haqiqiy Keitaro'da (tlgk.host) tekshirilgan: mamlakat filtri — `name="country", mode="accept"`; ofer oqimi — `schema="landings"` + majburiy `action_type="http"`; `POST /campaigns`da `domain_id` qo'llab-quvvatlanadi; arxivlangan kampaniya nomini qayta ishlatib bo'lmaydi (xizmat maslahat bilan `409` qaytaradi). Barcha kalitlar — `app/services/campaign_creator.py` va `.env`da (`COUNTRY_FILTER_*`).

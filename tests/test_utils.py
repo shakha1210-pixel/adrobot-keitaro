@@ -1,4 +1,4 @@
-"""Юнит-тесты утилит: доли и alias."""
+"""Юнит-тесты утилит: доли, alias, домены."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import re
 
 from app.services.campaign_creator import generate_alias
 from app.services.campaign_editor import distribute_shares
+from app.services.views import normalize_domain
 
 
 def test_distribute_shares():
@@ -18,6 +19,15 @@ def test_distribute_shares():
         assert len(shares) == n
         assert sum(shares) == 100
         assert all(s > 0 for s in shares)
+
+
+def test_normalize_domain():
+    """Реальный Keitaro отдаёт домен как "https://kylovoa.com/" — нормализуем."""
+    assert normalize_domain("https://kylovoa.com/") == "kylovoa.com"
+    assert normalize_domain("kylovoa.com") == "kylovoa.com"
+    assert normalize_domain("http://a.b/x/") == "a.b/x"
+    assert normalize_domain(None) is None
+    assert normalize_domain("") is None
 
 
 def test_generate_alias_latin_and_unique():
