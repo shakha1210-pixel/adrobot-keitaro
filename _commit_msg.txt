@@ -1,0 +1,8 @@
+docs: sync READMEs and architecture with verified state
+
+- test count 48 -> 51 everywhere (RU/UZ READMEs and ARCHITECTURE)
+- README config tables: COUNTRY_FILTER_NAME / COUNTRY_FILTER_MODE
+- UI description: premium pixel-terminal theme with boot screen
+- structure trees: static/ now lists premium.css and fx.js
+- ARCHITECTURE: frontend section documents the boot sequence and
+  effects; status tables add premium UI and real-Keitaro verification

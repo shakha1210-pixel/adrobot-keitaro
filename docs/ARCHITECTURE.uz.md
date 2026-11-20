@@ -64,8 +64,8 @@ adrobot-keitaro/
 │       ├── campaigns.py
 │       └── operations.py
 ├── alembic/                 # migratsiyalar (alembic upgrade head)
-├── static/                  # index.html, styles.css, app.js, favicon.svg
-├── tests/                   # pytest + respx (48 test)
+├── static/                  # index.html, styles.css, premium.css, fx.js, app.js, favicon.svg
+├── tests/                   # pytest + respx (51 test)
 ├── scripts/                 # dev.ps1, check.ps1, mock_keitaro.py
 ├── .github/workflows/ci.yml # lint, testlar (3.11–3.13), migratsiyalar, frontend
 ├── pyproject.toml           # ruff + pytest sozlamalari
@@ -218,7 +218,7 @@ Axborot sizib chiqmasligi: integratsiya 5xx-xatolarining matni xavfsiz qoliplar 
 
 ## 12. Frontend
 
-Bitta sahifa (HTML + vanilla JS, build'siz), FastAPI `static/`dan beradi. Qorong'u mavzu, uchta tab, **ikki til — RU/UZ** (sarlavhadagi almashtirgich, tanlov `localStorage`da saqlanadi, butun interfeys va mamlakat nomlari lokallashtirilgan; server xato xabarlari rus tilida, §16 ga qarang):
+Bitta sahifa (HTML + vanilla JS, build'siz), FastAPI `static/`dan beradi. **Premium pixel-terminal mavzu**: boot-ekran (`fx.js`: dissolve/scramble/confetti bilan pikselli yuklanish, Keitaro holati health-beyjidan o'qiladi, takroriy yuklanishlar — qisqa ketma-ketlik, `prefers-reduced-motion` animatsiyalarni o'tkazib yuboradi), CRT-overlay, tab-ink, sanash animatsiyasi. Uchta tab, **ikki til — RU/UZ** (sarlavhadagi almashtirgich, tanlov `localStorage`da saqlanadi, butun interfeys va mamlakat nomlari lokallashtirilgan; server xato xabarlari rus tilida, §16 ga qarang):
 
 - **«Yangi kampaniya»** — Name (prefiks tekshiruvi), Geo (ISO-kod tanlash + erkin kiritish, kod va nom bo'yicha uch tilda qidiruv), Offer (300 ms debounce bilan autocomplete), Create; yaratilgach — ikki oqimli kampaniya kartasi, «Muharrirga o'tish» va «Keitaro» (admin panelni `meta.admin_url`dan ochadi) tugmalari.
 - **«Kampaniyalar muharriri»** — kampaniya tanlash (qidiruv + ro'yxatni yangilash tugmasi) → karta (domen/guruh/manba, statistika tayllari, «Keitaro») → oqim kartalari: filtr-chip'lar, ulushli oferlar jadvali (progress-bar'lar), statistika va ofer ID'ni nusxalash; qo'shish (autocomplete) va o'chirish (tasdiqlash bilan, oxirgisi bloklangan); toast xatolari, shu jumladan `keitaro_ambiguous`.
@@ -228,7 +228,7 @@ Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast
 
 ## 13. Test
 
-- `pytest` + `respx` (Keitaro mock): **48 test**.
+- `pytest` + `respx` (Keitaro mock): **51 test**.
 - Qamrov: yaratish (happy path, validatsiya, rollback, POST'ning noaniq natijasi), muharrir (ulushlar, ziddiyatlar, boshqa konfiguratsiyaning saqlanishi, statistika degradatsiyasi, takroriy operatsiyalar), Keitaro mijozi (idempotent retry, mutatsiyalarda retry yo'q, timeoutlar, 4xx/401), health (live/ready, bog'liqlik yiqilganda `503`), audit (shu jumladan DB yiqilishi → xavfsiz 500), korrelyatsion ID'lar, sizib chiqishlarning yo'qligi.
 - Haqiqiy Keitaro'da `test_<familiya>_` prefiksi bilan qo'lda smoke-test.
 - CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)): ruff lint + format, pytest Python 3.11–3.13'da, toza bazada `alembic upgrade head`, frontend uchun `node --check`.
@@ -249,6 +249,8 @@ Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast
 | Observability: live/ready, X-Request-ID | ✅ |
 | Xavfsizlik: sizib chiqishlar yo'q, gitda sirlar yo'q | ✅ |
 | Frontend, SQLAlchemy + Alembic, xatolarni qayta ishlash | ✅ |
+| Premium pixel-terminal UI (boot-ekran, effektlar) | ✅ |
+| Haqiqiy Keitaro'da tekshiruv (kampaniya yaratish) | ✅ |
 | Lint (ruff), CI, pre-commit | ✅ |
 | README (RU/UZ), demo-rejim, skrinkast | ✅ |
 

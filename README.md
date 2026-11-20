@@ -40,7 +40,7 @@
 - гео-код страны — 2 буквы ISO-3166 (справочник из 113 кодов), нормализуется в верхний регистр;
 - проверка существования оффера в Keitaro (иначе `404`);
 - кампания создаётся с доменом, группой и источником (резолвятся по имени из `.env`);
-- поток №1 (позиция 1): фильтр «страна = гео» (allow) → редирект на `REDIRECT_URL` (Google);
+- поток №1 (позиция 1): фильтр «страна = гео» → редирект на `REDIRECT_URL` (Google);
 - поток №2 (позиция 2): catch-all → выбранный оффер с долей 100%;
 - при сбое на шаге потоков созданная кампания автоматически откатывается (архивируется);
 - каждая операция пишется в таблицу аудита `operation_log`.
@@ -54,7 +54,7 @@
 - статистика по каждому офферу (клики, уники, боты, конверсии, CR) напрямую из `POST /report/build`;
 - при правке офферов **остальная конфигурация потока не теряется**: PUT строится от исходного представления потока (triggers, comments, filter_or, chance, action_options, landings сохраняются) — покрыто регрессионным тестом.
 
-**Интерфейс** — тёмная профессиональная тема, **два языка: русский и узбекский** (переключатель `RU | UZ` в шапке, выбор запоминается в браузере, названия стран и все сообщения — на обоих языках).
+**Интерфейс** — premium pixel-terminal тема (boot-экран, CRT-эффекты, анимации счётчиков), **два языка: русский и узбекский** (переключатель `RU | UZ` в шапке, выбор запоминается в браузере, названия стран и все сообщения — на обоих языках).
 
 ## Быстрый старт
 
@@ -125,6 +125,8 @@ alembic current                               # текущая ревизия
 | `DEFAULT_GROUP` | `FORTESTS` | группа кампании (имя в Keitaro) |
 | `DEFAULT_SOURCE` | `FORTESTS` | источник трафика (имя в Keitaro) |
 | `REDIRECT_URL` | `https://google.com` | назначение гео-потока |
+| `COUNTRY_FILTER_NAME` | `country` | имя фильтра страны в Admin API (проверено на реальном Keitaro) |
+| `COUNTRY_FILTER_MODE` | `accept` | режим фильтра страны (`accept`/`reject`) |
 | `REPORT_INTERVAL` | `7_days_ago` | период статистики (`today`, `all_time`, …) |
 | `REPORT_TIMEZONE` | `UTC` | таймзона отчёта |
 | `DATABASE_URL` | `sqlite:///./adrobot.db` | БД (SQLite/PostgreSQL) |
@@ -175,7 +177,7 @@ Keitaro — внешняя система, которая может тайма�
 ## Тесты и качество кода
 
 ```bash
-pytest                        # 48 тестов
+pytest                        # 51 тест
 pytest -v                     # подробно
 pytest tests/test_keitaro_client.py -v   # политика повторов и неоднозначные исходы
 ruff check .                  # линтер
@@ -225,8 +227,8 @@ adrobot-keitaro/
 │   │                        # campaign_creator, campaign_editor, views
 │   └── routers/             # meta (health), offers, campaigns, operations
 ├── alembic/                 # миграции (alembic upgrade head)
-├── static/                  # UI: index.html, styles.css, app.js
-├── tests/                   # pytest + respx (48 тестов)
+├── static/                  # UI: index.html, styles.css, premium.css, fx.js, app.js
+├── tests/                   # pytest + respx (51 тест)
 ├── scripts/
 │   ├── dev.ps1              # быстрый запуск на Windows
 │   ├── check.ps1            # lint + tests + frontend

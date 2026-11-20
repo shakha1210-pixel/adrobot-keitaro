@@ -64,8 +64,8 @@ adrobot-keitaro/
 │       ├── campaigns.py
 │       └── operations.py
 ├── alembic/                 # миграции (alembic upgrade head)
-├── static/                  # index.html, styles.css, app.js, favicon.svg
-├── tests/                   # pytest + respx (48 тестов)
+├── static/                  # index.html, styles.css, premium.css, fx.js, app.js, favicon.svg
+├── tests/                   # pytest + respx (51 тест)
 ├── scripts/                 # dev.ps1, check.ps1, mock_keitaro.py
 ├── .github/workflows/ci.yml # lint, tests (3.11–3.13), миграции, фронтенд
 ├── pyproject.toml           # ruff + pytest конфигурация
@@ -218,7 +218,7 @@ Idempotency-ключи Keitaro официально не поддерживае�
 
 ## 12. Frontend
 
-Одна страница (HTML + vanilla JS, без сборки), раздаётся FastAPI из `static/`. Тёмная тема, три вкладки, **два языка — RU/UZ** (переключатель в шапке, выбор хранится в `localStorage`, весь интерфейс и названия стран локализованы; серверные сообщения об ошибках — на русском, см. §16):
+Одна страница (HTML + vanilla JS, без сборки), раздаётся FastAPI из `static/`. **Premium pixel-terminal тема**: boot-экран (`fx.js`: пиксельная загрузка с dissolve/scramble/confetti, состояние Keitaro читается из health-бейджа, повторные загрузки — короткая последовательность, `prefers-reduced-motion` пропускает анимации), CRT-оверлей, tab-ink, анимация счётчиков. Три вкладки, **два языка — RU/UZ** (переключатель в шапке, выбор хранится в `localStorage`, весь интерфейс и названия стран локализованы; серверные сообщения об ошибках — на русском, см. §16):
 
 - **«Новая кампания»** — Name (проверка префикса), Geo (выбор ISO-кода + свободный ввод, поиск по коду и названию на трёх языках), Offer (автокомплит с debounce 300 мс), Create; после создания — карточка кампании с двумя потоками, кнопками «Перейти в редактор» и «Keitaro» (открывает админку из `meta.admin_url`).
 - **«Редактор кампаний»** — выбор кампании (поиск + кнопка обновления списка) → карточка (домен/группа/источник, тизеры статистики, «Keitaro») → карточки потоков: фильтры-чипы, таблица офферов с долями (прогресс-бары), статистикой и копированием ID оффера; добавление (автокомплит) и удаление (с подтверждением, последний — заблокирован); тосты ошибок, включая `keitaro_ambiguous`.
@@ -228,7 +228,7 @@ Idempotency-ключи Keitaro официально не поддерживае�
 
 ## 13. Тестирование
 
-- `pytest` + `respx` (мок Keitaro): **48 тестов**.
+- `pytest` + `respx` (мок Keitaro): **51 тест**.
 - Покрытие: создание (happy path, валидация, откат, неоднозначный исход POST), редактор (доли, конфликты, сохранность чужой конфигурации потока, деградация статистики, повторные операции), клиент Keitaro (ретраи идемпотентных, отсутствие ретраев мутаций, таймауты, 4xx/401), health (live/ready, `503` при падении зависимости), аудит (в т.ч. сбой БД → безопасный 500), корреляционные ID, отсутствие утечек.
 - Ручной smoke-тест на реальном Keitaro с префиксом `test_<фамилия>_`.
 - CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)): ruff lint + format, pytest на Python 3.11–3.13, `alembic upgrade head` на чистой базе, `node --check` для фронтенда.
@@ -249,6 +249,8 @@ Idempotency-ключи Keitaro официально не поддерживае�
 | Observability: live/ready, X-Request-ID | ✅ |
 | Безопасность: нет утечек, нет секретов в git | ✅ |
 | Frontend, SQLAlchemy + Alembic, обработка ошибок | ✅ |
+| Premium pixel-terminal UI (boot-экран, эффекты) | ✅ |
+| Проверка на реальном Keitaro (создание кампании) | ✅ |
 | Lint (ruff), CI, pre-commit | ✅ |
 | README (RU/UZ), демо-режим, скринкаст | ✅ |
 

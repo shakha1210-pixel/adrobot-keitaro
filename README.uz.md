@@ -40,7 +40,7 @@
 - geо-kod — ISO-3166 bo'yicha 2 harf (113 kodlik ma'lumotnoma), katta harfga o'giriladi;
 - offer Keitaro'da mavjudligi tekshiriladi (yo'q bo'lsa `404`);
 - kampaniya domen, guruh va manba bilan yaratiladi (nomlari `.env`dan ID'ga aylantiriladi);
-- 1-oqim (1-pozitsiya): «davlat = geо» filtri (allow) → `REDIRECT_URL` (Google)ga redirect;
+- 1-oqim (1-pozitsiya): «davlat = geо» filtri → `REDIRECT_URL` (Google)ga redirect;
 - 2-oqim (2-pozitsiya): catch-all → tanlangan offer, ulushi 100%;
 - oqimlar qadamida xato bo'lsa, yaratilgan kampaniya avtomatik qaytariladi (arxivlanadi);
 - har bir operatsiya `operation_log` audit jadvaliga yoziladi.
@@ -54,7 +54,7 @@
 - har bir offer bo'yicha statistika (klik, unik, bot, konversiya, CR) bevosita `POST /report/build`dan;
 - offerlarni tahrirlaganda **oqimning boshqa konfiguratsiyasi yo'qolmaydi**: PUT oqimning asl ko'rinishidan quriladi (triggers, comments, filter_or, chance, action_options, landings saqlanadi) — regressiya testi bilan qoplangan.
 
-**Interfeys** — professional qorong'u mavzu, **ikki til: rus va o'zbek** (sarlavhadagi `RU | UZ` almashtirgichi, tanlov brauzerda eslab qolinadi, mamlakat nomlari va barcha xabarlar — ikkala tilda).
+**Interfeys** — premium pixel-terminal mavzu (boot-ekran, CRT-effektlar, sanash animatsiyalari), **ikki til: rus va o'zbek** (sarlavhadagi `RU | UZ` almashtirgichi, tanlov brauzerda eslab qolinadi, mamlakat nomlari va barcha xabarlar — ikkala tilda).
 
 ## Tez boshlash
 
@@ -125,6 +125,8 @@ Barcha parametrlar `.env`da (shablon — [.env.example](.env.example)):
 | `DEFAULT_GROUP` | `FORTESTS` | kampaniya guruhi (Keitaro'dagi nomi) |
 | `DEFAULT_SOURCE` | `FORTESTS` | trafik manbasi (Keitaro'dagi nomi) |
 | `REDIRECT_URL` | `https://google.com` | geо-oqimning manzili |
+| `COUNTRY_FILTER_NAME` | `country` | Admin API'dagi mamlakat filtri nomi (haqiqiy Keitaro'da tekshirilgan) |
+| `COUNTRY_FILTER_MODE` | `accept` | mamlakat filtri rejimi (`accept`/`reject`) |
 | `REPORT_INTERVAL` | `7_days_ago` | statistika davri (`today`, `all_time`, …) |
 | `REPORT_TIMEZONE` | `UTC` | hisobot vaqt zonasi |
 | `DATABASE_URL` | `sqlite:///./adrobot.db` | baza (SQLite/PostgreSQL) |
@@ -175,7 +177,7 @@ Keitaro — tashqi tizim: timeout berishi, 5xx qaytarishi yoki so'rovni tasdiqsi
 ## Testlar va kod sifati
 
 ```bash
-pytest                        # 48 ta test
+pytest                        # 51 ta test
 pytest -v                     # batafsil
 pytest tests/test_keitaro_client.py -v   # retry siyosati va noaniq natijalar
 ruff check .                  # linter
@@ -225,8 +227,8 @@ adrobot-keitaro/
 │   │                        # campaign_creator, campaign_editor, views
 │   └── routers/             # meta (health), offers, campaigns, operations
 ├── alembic/                 # migratsiyalar (alembic upgrade head)
-├── static/                  # UI: index.html, styles.css, app.js
-├── tests/                   # pytest + respx (48 test)
+├── static/                  # UI: index.html, styles.css, premium.css, fx.js, app.js
+├── tests/                   # pytest + respx (51 test)
 ├── scripts/
 │   ├── dev.ps1              # Windows'da tez ishga tushirish
 │   ├── check.ps1            # lint + testlar + frontend
