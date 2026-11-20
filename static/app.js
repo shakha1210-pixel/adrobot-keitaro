@@ -641,7 +641,7 @@ const ERR_KEYS = {
 };
 
 async function api(path, { method = 'GET', body } = {}) {
-  const options = { method, headers: { Accept: 'application/json' } };
+  const options = { method, cache: 'no-store', headers: { Accept: 'application/json' } };
   if (body !== undefined) {
     options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
