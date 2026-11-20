@@ -7,10 +7,11 @@ mark{background:rgba(255,51,71,.25)}
 .bg-glow{display:block;position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(520px circle at var(--mx,50%) var(--my,-10%),rgba(255,51,71,.085),transparent 65%)}
 body::before{background:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:24px 24px;-webkit-mask-image:radial-gradient(380px circle at var(--mx,50%) var(--my,-10%),#000,transparent 72%);mask-image:radial-gradient(380px circle at var(--mx,50%) var(--my,-10%),#000,transparent 72%)}
 body::after{content:"";position:fixed;left:0;right:0;top:0;height:340px;z-index:-1;pointer-events:none;background:conic-gradient(rgba(255,255,255,.045) 25%,transparent 0 50%,rgba(255,255,255,.045) 0 75%,transparent 0) 0 0/4px 4px;-webkit-mask-image:linear-gradient(#000,transparent);mask-image:linear-gradient(#000,transparent)}
-.crt-overlay{position:fixed;inset:0;z-index:40;pointer-events:none;opacity:.18;background:repeating-linear-gradient(to bottom,rgba(255,255,255,.035) 0 1px,transparent 1px 4px),radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.32));animation:crtFlicker 7s steps(1,end) infinite}
-.crt-overlay::before{content:"";position:absolute;left:0;right:0;top:-28%;height:18%;background:linear-gradient(180deg,transparent,rgba(255,51,71,.045),transparent);animation:crtSweep 11s linear infinite}
-@keyframes crtFlicker{0%,96%,98%,100%{opacity:.18}97%{opacity:.12}99%{opacity:.22}}
-@keyframes crtSweep{to{transform:translateY(720%)}}
+/* CRT: statik skanlaynlar + juda yumshoq fliker saqlanadi; harakatlanuvchi
+   sweep chizig'i olib tashlandi (input ustidan o'tib, glitch'ga o'xshardi) */
+.crt-overlay{position:fixed;inset:0;z-index:40;pointer-events:none;opacity:.10;background:repeating-linear-gradient(to bottom,rgba(255,255,255,.03) 0 1px,transparent 1px 4px),radial-gradient(ellipse at center,transparent 62%,rgba(0,0,0,.28));animation:crtFlicker 7s steps(1,end) infinite}
+.crt-overlay::before{display:none}
+@keyframes crtFlicker{0%,96%,98%,100%{opacity:.10}97%{opacity:.08}99%{opacity:.15}}
 
 /* sharper geometry */
 .input,.btn,.chip,.badge,.health,.lang-switch,.lang-btn,.icon-btn,.toast,.cb-list,.cb-item,.cc-url,.stats-grid,.banner,.form-error,.tab-ink,.share-track,.pos-badge{border-radius:4px}
