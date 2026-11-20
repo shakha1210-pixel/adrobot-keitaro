@@ -15,6 +15,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `pytest` (entry-point) da cwd sys.path'ga tushmaydi — CI shu sabab
+# `import app` ni topa olmas edi; ikkala chaqiruv usulini ham ishlatish uchun:
+pythonpath = ["."]
 addopts = "-q"
 filterwarnings = [
     "ignore:Field name \"schema\" in \"StreamOut\" shadows an attribute:UserWarning",
