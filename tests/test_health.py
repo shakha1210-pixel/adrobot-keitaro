@@ -73,7 +73,11 @@ def test_request_id_header_present(client, api):
 def test_static_served_with_no_cache(client, api):
     """Регрессия: статика должна отдаваться с no-cache, иначе браузер
     смешивает старый app.js с новым index.html (пустые подписи, мёртвые кнопки)."""
-    for path in ("/", "/app.js", "/styles.css"):
+    for path in ("/", "/app.js", "/fx.js", "/styles.css", "/premium.css", "/favicon.svg"):
         resp = client.get(path)
         assert resp.status_code == 200
-        assert resp.headers.get("Cache-Control") == "no-cache"
+        assert resp.headers.get("Cache-Control") == (
+            "no-store, no-cache, must-revalidate, max-age=0"
+        )
+        assert resp.headers.get("Pragma") == "no-cache"
+        assert resp.headers.get("Expires") == "0"
