@@ -66,6 +66,11 @@ def test_request_id_header_present(client, api):
     api.get(f"{API}/offers").mock(return_value=httpx.Response(200, json=[]))
     resp = client.get("/api/offers")
     assert resp.headers.get("X-Request-ID")
+    assert resp.headers.get("Cache-Control") == (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
+    assert resp.headers.get("Pragma") == "no-cache"
+    assert resp.headers.get("Expires") == "0"
     resp = client.get("/api/offers", headers={"X-Request-ID": "trace-42"})
     assert resp.headers["X-Request-ID"] == "trace-42"
 
