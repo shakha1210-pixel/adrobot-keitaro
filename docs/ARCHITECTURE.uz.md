@@ -1,6 +1,6 @@
 # Arxitektura: Adrobot — Keitaro ustidan o'ram (wrapper)
 
-> 🇷🇺 По-русски: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md) · Holat: **amalga oshirilgan, testlar bilan qoplangan (54) va CI'da tekshiriladi**.
+> 🇷🇺 По-русски: [ARCHITECTURE.ru.md](ARCHITECTURE.ru.md) · Holat: **amalga oshirilgan, testlar bilan qoplangan (58) va CI'da tekshiriladi**.
 
 ## 1. Maqsad va chegaralar
 
@@ -16,7 +16,7 @@ Chegaradan tashqari: foydalanuvchi avtorizatsiyasi, offer/statistikani o'zimizda
 | Tamoyil | Oqibat |
 |---|---|
 | **Keitaro — yagona haqiqat manbai** | Kampaniya/offer/statistikani o'z DB'mizda takrorlamaymiz. Hammasini API'dan o'qiymiz. |
-| **O'z DB'miz — faqat audit** | Operatsiyalar tarixi jadvali (kim/nima/qachon/natija): nosozlikni topish va hisobot uchun. |
+| **O'z DB'miz — faqat audit** | Operatsiyalar tarixi jadvali (nima/qachon/natija; foydalanuvchi avtorizatsiyasisiz): nosozlikni topish va hisobot uchun. |
 | **Yupqa qatlamlar** | `router → service → keitaro client`. Biznes-logika faqat `services`'da. |
 | **Sirlar repodan tashqarida** | Kalit va URL faqat `.env`'dan; gitda `.env.example` turadi. |
 | **Test ma'lumotlari xavfsizligi** | Har bir kampaniya `test_<familiya>_` prefiksi bilan boshlanishi shart (backend tekshiradi). |
@@ -65,7 +65,7 @@ adrobot-keitaro/
 │       └── operations.py
 ├── alembic/                 # migratsiyalar (alembic upgrade head)
 ├── static/                  # index.html, styles.css, premium.css, fx.js, app.js, favicon.svg
-├── tests/                   # pytest + respx (54 test)
+├── tests/                   # pytest + respx (58 test)
 ├── scripts/                 # dev.ps1, check.ps1, mock_keitaro.py
 ├── .github/workflows/ci.yml # lint, testlar (3.11–3.13), migratsiyalar, frontend
 ├── pyproject.toml           # ruff + pytest sozlamalari
@@ -157,13 +157,13 @@ Oqimlar tartibi muhim: Keitaro ularni yuqoridan pastga tekshiradi — «geо-oqi
 **O'qish:** `GET /api/campaigns/{id}` → kampaniya + oqimlar + oqim offerlari (nomi, ulushi %, `POST /report/build`dan klik/unik/konversiyalar).
 
 **Offer qo'shish** (`POST /api/campaigns/{id}/streams/{stream_id}/offers {offer_id}`):
-1. Oqimni olish, sxemani tekshirish (`offers`) va offer u yerda yo'qligi (`409`).
+1. Oqimni olish, oqim offerlarni qo'llashini tekshirish (`landings`; legacy `offers` ham qo'llanadi) va offer u yerda yo'qligi (`409`).
 2. Qo'shish va **ulushlarni qayta hisoblash**: yig'indi = 100%, teng taqsimlash, qoldiq — birinchi offerlarga (`distribute_shares`).
 3. `PUT /streams/{id}` asl payloaddan (§5); yangilangan holatni qaytarish.
 
 **Offer o'chirish** (`DELETE …/offers/{offer_id}`):
 1. O'chirish, qolganlar orasida ulushlarni **qayta taqsimlash** (yig'indi = 100%).
-2. «Offerlar» sxemali oqimdagi oxirgi offerni o'chirib bo'lmaydi → `409`.
+2. `landings` (yoki legacy `offers`) sxemali oqimdagi oxirgi offerni o'chirib bo'lmaydi → `409`.
 
 «To'g'ri raqamlar»: (a) ulushlar doim 100% beradi (shu jumladan takroriy operatsiyalarda — test qilinadi); (b) klik/unik/bot/konversiya/CR — `report/build`dan (oqim va offer bo'yicha guruhlash); (c) davr va vaqt zonasi — `REPORT_INTERVAL`, `REPORT_TIMEZONE`.
 
@@ -229,7 +229,7 @@ Tarmoq va server xatolari bir xilda qayta ishlanadi (`api()` yordamchisi + toast
 
 ## 13. Test
 
-- `pytest` + `respx` (Keitaro mock): **54 test**.
+- `pytest` + `respx` (Keitaro mock): **58 test**.
 - Qamrov: yaratish (happy path, validatsiya, rollback, POST'ning noaniq natijasi), muharrir (ulushlar, ziddiyatlar, boshqa konfiguratsiyaning saqlanishi, statistika degradatsiyasi, takroriy operatsiyalar), Keitaro mijozi (idempotent retry, mutatsiyalarda retry yo'q, timeoutlar, 4xx/401), health (live/ready, bog'liqlik yiqilganda `503`), audit (shu jumladan DB yiqilishi → xavfsiz 500), korrelyatsion ID'lar, sizib chiqishlarning yo'qligi.
 - Haqiqiy Keitaro'da `test_<familiya>_` prefiksi bilan qo'lda smoke-test.
 - CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)): ruff lint + format, pytest Python 3.11–3.13'da, toza bazada `alembic upgrade head`, frontend uchun `node --check`.

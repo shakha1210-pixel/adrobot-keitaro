@@ -15,6 +15,16 @@
 
 ---
 
+## Navigatsiya
+
+| Kim uchun | Hujjat | Ichida |
+|---|---|---|
+| Foydalanuvchi | [Qisqa qo'llanma](docs/GUIDE.uz.md) | Ishga tushirish, kampaniya, muharrir |
+| Dasturchi / reviewer | [Professional qo'llanma](docs/PROFESSIONAL.uz.md) | Arxitektura, API, ishonchlilik, testlar |
+| Yordam / DevOps | [Loglar va diagnostika](docs/OPERATIONS.uz.md) | Terminal, health-check, request ID, troubleshooting |
+
+**Tezkor havolalar:** [Ishga tushirish](#tez-boshlash) · [API](#xizmat-apisi) · [Testlar](#testlar-va-kod-sifati) · [Arxitektura](docs/ARCHITECTURE.uz.md)
+
 ## Mundarija
 
 - [Nimalarni biladi](#nimalarni-biladi)
@@ -190,7 +200,7 @@ Keitaro — tashqi tizim: timeout berishi, 5xx qaytarishi yoki so'rovni tasdiqsi
 ## Testlar va kod sifati
 
 ```bash
-pytest                        # 54 ta test
+pytest                        # 58 ta test
 pytest -v                     # batafsil
 pytest tests/test_keitaro_client.py -v   # retry siyosati va noaniq natijalar
 ruff check .                  # linter
@@ -241,7 +251,7 @@ adrobot-keitaro/
 │   └── routers/             # meta (health), offers, campaigns, operations
 ├── alembic/                 # migratsiyalar (alembic upgrade head)
 ├── static/                  # UI: index.html, styles.css, premium.css, fx.js, app.js
-├── tests/                   # pytest + respx (54 test)
+├── tests/                   # pytest + respx (58 test)
 ├── scripts/
 │   ├── dev.ps1              # Windows'da tez ishga tushirish
 │   ├── check.ps1            # lint + testlar + frontend
