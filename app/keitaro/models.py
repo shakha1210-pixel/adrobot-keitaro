@@ -28,10 +28,18 @@ class Offer:
 
     @classmethod
     def from_dict(cls, d: dict) -> Offer:
+        country_raw = d.get("country")
+        if isinstance(country_raw, list):
+            # Реальный Keitaro отдаёт country массивом (например, ["Peru"])
+            country = ", ".join(str(x) for x in country_raw if x) or None
+        elif isinstance(country_raw, str):
+            country = country_raw or None
+        else:
+            country = None
         return cls(
             id=int(d.get("id", 0)),
             name=str(d.get("name") or ""),
-            country=d.get("country"),
+            country=country,
             payout_value=str(d.get("payout_value")) if d.get("payout_value") is not None else None,
             payout_currency=d.get("payout_currency"),
             state=d.get("state"),

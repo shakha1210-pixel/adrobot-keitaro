@@ -48,3 +48,22 @@ def test_search_cached(client, api):
     client.get("/api/offers")
     client.get("/api/offers", params={"q": "beta"})
     assert route.call_count == 1  # второй запрос идёт из кэша
+
+
+def test_country_as_list_is_normalized(client, api):
+    """Регрессия: реальный Keitaro отдаёт offer.country МАССИВОМ (["Peru"]),
+    а не строкой — сервис должен нормализовать, а не падать с 500."""
+    _mock_offers(
+        api,
+        [
+            {"id": 5, "name": "List country", "country": ["Peru", "Chile"], "state": "active"},
+            {"id": 6, "name": "String country", "country": "US", "state": "active"},
+            {"id": 7, "name": "No country", "state": "active"},
+        ],
+    )
+    resp = client.get("/api/offers")
+    assert resp.status_code == 200
+    items = {item["id"]: item for item in resp.json()["items"]}
+    assert items[5]["country"] == "Peru, Chile"
+    assert items[6]["country"] == "US"
+    assert items[7]["country"] is None
