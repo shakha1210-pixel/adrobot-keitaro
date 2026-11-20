@@ -68,3 +68,12 @@ def test_request_id_header_present(client, api):
     assert resp.headers.get("X-Request-ID")
     resp = client.get("/api/offers", headers={"X-Request-ID": "trace-42"})
     assert resp.headers["X-Request-ID"] == "trace-42"
+
+
+def test_static_served_with_no_cache(client, api):
+    """Регрессия: статика должна отдаваться с no-cache, иначе браузер
+    смешивает старый app.js с новым index.html (пустые подписи, мёртвые кнопки)."""
+    for path in ("/", "/app.js", "/styles.css"):
+        resp = client.get(path)
+        assert resp.status_code == 200
+        assert resp.headers.get("Cache-Control") == "no-cache"

@@ -28,6 +28,20 @@ logging.basicConfig(
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
+class NoCacheStaticFiles(StaticFiles):
+    """Статика всегда отдаётся с Cache-Control: no-cache.
+
+    Фронтенд обновляется без хешированных имён файлов, поэтому кеш браузера
+    может смешать старый app.js с новым index.html (пустые подписи, мёртвый
+    переключатель языка). no-cache гарантирует свежие ассеты при каждой загрузке.
+    """
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -64,4 +78,4 @@ app.include_router(offers.router)  # /api/offers
 app.include_router(campaigns.router)  # /api/campaigns...
 app.include_router(operations.router)  # /api/operations
 
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+app.mount("/", NoCacheStaticFiles(directory=STATIC_DIR, html=True), name="static")

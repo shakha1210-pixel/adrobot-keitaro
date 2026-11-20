@@ -891,6 +891,7 @@ window.addEventListener('resize', moveInk);
 
 function switchTab(name) {
   currentTab = name;
+  try { sessionStorage.setItem('adrobot.tab', name); } catch (err) { /* storage unavailable */ }
   ['create', 'editor', 'history'].forEach((key) => {
     const panel = $(`#tab-${key}`);
     const btn = $(`#tab-btn-${key}`);
@@ -1500,6 +1501,8 @@ async function openCampaign(id, campaignHint) {
     editorState.stats = (data && data.stats) || {};
     editorState.streams = (data && data.streams) || [];
     editorState.loading = false;
+    // Refresh'dan keyin tanlangan kampaniyani tiklash uchun
+    try { sessionStorage.setItem('adrobot.campaign', String(id)); } catch (err) { /* storage unavailable */ }
     renderEditor();
   } catch (err) {
     editorState.loading = false;
@@ -2059,6 +2062,23 @@ function init() {
   setInterval(checkHealth, 30000);
   loadMeta();
   renderEditor();
+
+  // Refresh'dan keyin tab va tanlangan kampaniyani tiklash
+  let savedTab = null;
+  try { savedTab = sessionStorage.getItem('adrobot.tab'); } catch (err) { /* storage unavailable */ }
+  let savedCampaign = null;
+  try { savedCampaign = sessionStorage.getItem('adrobot.campaign'); } catch (err) { /* storage unavailable */ }
+  if (savedTab === 'editor' || savedTab === 'history') {
+    switchTab(savedTab);
+    if (savedTab === 'editor' && savedCampaign) {
+      const id = Number(savedCampaign);
+      if (Number.isInteger(id) && id > 0) {
+        campaignCombo.setExternal(null, '# ' + id);
+        openCampaign(id, null);
+      }
+    }
+  }
+
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveInk);
   moveInk();
 }
