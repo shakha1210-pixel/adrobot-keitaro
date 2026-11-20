@@ -15,6 +15,16 @@
 
 ---
 
+## Навигация
+
+| Для кого | Документ | Что внутри |
+|---|---|---|
+| Пользователь | [Краткое руководство](docs/GUIDE.ru.md) | Запуск, создание кампании, редактор |
+| Разработчик / reviewer | [Профессиональное руководство](docs/PROFESSIONAL.ru.md) | Архитектура, API, надёжность, тесты |
+| Поддержка / DevOps | [Логи и диагностика](docs/OPERATIONS.ru.md) | Терминал, health-check, request ID, troubleshooting |
+
+**Быстрые ссылки:** [Запустить](#быстрый-старт) · [API](#api-сервиса) · [Тесты](#тесты-и-качество-кода) · [Архитектура](docs/ARCHITECTURE.ru.md)
+
 ## Содержание
 
 - [Что умеет](#что-умеет)
@@ -179,7 +189,7 @@ Keitaro — внешняя система, которая может тайма�
 ## Тесты и качество кода
 
 ```bash
-pytest                        # 54 теста
+pytest                        # 58 тестов
 pytest -v                     # подробно
 pytest tests/test_keitaro_client.py -v   # политика повторов и неоднозначные исходы
 ruff check .                  # линтер
@@ -230,7 +240,7 @@ adrobot-keitaro/
 │   └── routers/             # meta (health), offers, campaigns, operations
 ├── alembic/                 # миграции (alembic upgrade head)
 ├── static/                  # UI: index.html, styles.css, premium.css, fx.js, app.js
-├── tests/                   # pytest + respx (54 теста)
+├── tests/                   # pytest + respx (58 тестов)
 ├── scripts/
 │   ├── dev.ps1              # быстрый запуск на Windows
 │   ├── check.ps1            # lint + tests + frontend
