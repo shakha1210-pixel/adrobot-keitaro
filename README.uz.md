@@ -189,7 +189,7 @@ Keitaro — tashqi tizim: timeout berishi, 5xx qaytarishi yoki so'rovni tasdiqsi
 ## Testlar va kod sifati
 
 ```bash
-pytest                        # 54 ta test
+pytest                        # 58 ta test
 pytest -v                     # batafsil
 pytest tests/test_keitaro_client.py -v   # retry siyosati va noaniq natijalar
 ruff check .                  # linter
