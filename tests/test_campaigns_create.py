@@ -181,6 +181,41 @@ def test_rollback_when_verification_fails(client, api):
     assert ops[0]["status"] == "error"
 
 
+def test_rollback_when_streams_incomplete(client, api):
+    """Регрессия: GET вернул только один поток (HTTP 200, но список неполный) —
+    кампания не должна объявляться успешной, откатываем."""
+    _register_world(api)
+    api.get(f"{API}/campaigns/734/streams").mock(return_value=json_response([STREAMS[0]]))
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    assert resp.status_code == 502
+    body = resp.json()["error"]
+    assert body["code"] == "keitaro_error"
+    assert "2 потока" in body["message"]
+    assert delete_route.call_count == 1
+
+
+def test_rollback_when_offer_stream_misconfigured(client, api):
+    """Регрессия: офферный поток вернулся с неверной долей — откат."""
+    _register_world(api)
+    bad_offer_stream = {
+        **STREAMS[1],
+        "offers": [{"id": 41, "offer_id": 12, "share": 50, "state": "active"}],
+    }
+    api.get(f"{API}/campaigns/734/streams").mock(
+        return_value=json_response([STREAMS[0], bad_offer_stream])
+    )
+    delete_route = api.delete(f"{API}/campaigns/734").mock(return_value=json_response([]))
+    resp = client.post(
+        "/api/campaigns", json={"name": "test_familiya_c1", "geo": "UZ", "offer_id": 12}
+    )
+    assert resp.status_code == 502
+    assert "Офферный поток" in resp.json()["error"]["message"]
+    assert delete_route.call_count == 1
+
+
 def test_name_in_archive_conflict(client, api):
     """Регрессия: Keitaro запрещает имя архивной кампании — сервис должен
     вернуть понятный 409, а не прятать причину за 502."""

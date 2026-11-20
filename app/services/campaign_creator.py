@@ -94,6 +94,50 @@ class CampaignCreatorService:
             raise NotFoundError(f"Оффер #{offer_id} не найден в Keitaro.")
         return offer
 
+    @staticmethod
+    def _verify_streams(
+        streams: list[Stream], req: CampaignCreateRequest, settings: Settings
+    ) -> None:
+        """Кампания считается успешной только при точном соответствии обоих потоков.
+
+        GET может вернуть пустой/неполный список даже при HTTP 200 — проверяем
+        фактическую конфигурацию, иначе откатываем кампанию.
+        """
+        geo_streams = [s for s in streams if s.schema == "redirect"]
+        offer_streams = [s for s in streams if s.schema in ("offers", "landings")]
+        if len(geo_streams) != 1 or len(offer_streams) != 1:
+            raise KeitaroApiError(
+                "Ожидалось ровно 2 потока (редирект + офферный), Keitaro вернул "
+                f"{len(streams)} — конфигурация не подтверждена, кампания откачена.",
+                public=True,
+            )
+        geo_stream = geo_streams[0]
+        offer_stream = offer_streams[0]
+
+        geo_filter_ok = any(
+            f.name == settings.country_filter_name
+            and f.mode == settings.country_filter_mode
+            and req.geo
+            in (f.payload if isinstance(f.payload, list) else str(f.payload or "").split())
+            for f in geo_stream.filters
+        )
+        if not (geo_stream.action_payload == settings.redirect_url and geo_filter_ok):
+            raise KeitaroApiError(
+                "Гео-поток настроен неверно — конфигурация не подтверждена, кампания откачена.",
+                public=True,
+            )
+
+        if not (
+            len(offer_stream.offers) == 1
+            and offer_stream.offers[0].offer_id == req.offer_id
+            and offer_stream.offers[0].share == 100
+        ):
+            raise KeitaroApiError(
+                "Офферный поток настроен неверно — конфигурация не подтверждена, "
+                "кампания откачена.",
+                public=True,
+            )
+
     async def create(self, req: CampaignCreateRequest) -> CampaignCreateOut:
         settings = self._settings
         if not req.name.startswith(settings.campaign_prefix):
@@ -190,6 +234,13 @@ class CampaignCreatorService:
             # Финальная сверка — тоже внутри rollback-границы: если потоки созданы,
             # а GET упал, кампания не должна остаться «сиротой» без ответа клиенту.
             streams_data = await self._client.list_streams(campaign_id)
+            streams = [
+                Stream.from_dict(d)
+                for d in streams_data
+                if str(d.get("state") or "active") != "deleted"
+            ]
+            # Кампания считается успешной только при точном соответствии обоих потоков.
+            self._verify_streams(streams, req, settings)
         except Exception as exc:
             log.error("сбой при создании потоков кампании %s, откатываем: %s", campaign_id, exc)
             try:
@@ -206,11 +257,6 @@ class CampaignCreatorService:
             )
             raise
 
-        streams = [
-            Stream.from_dict(d)
-            for d in streams_data
-            if str(d.get("state") or "active") != "deleted"
-        ]
         offer_names = {req.offer_id: offer_name}
         campaign = Campaign.from_dict(campaign_data)
 
